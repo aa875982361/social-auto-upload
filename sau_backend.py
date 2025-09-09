@@ -7,7 +7,9 @@ import uuid
 from pathlib import Path
 from queue import Queue
 from flask_cors import CORS
+from flask_jwt_extended import get_jwt_identity
 from myUtils.auth import check_cookie
+from myUtils.auth_service import AuthService, require_auth, require_admin, require_user
 from flask import Flask, request, jsonify, Response, render_template, send_from_directory
 from conf import BASE_DIR
 from myUtils.login import get_tencent_cookie, douyin_cookie_gen, get_ks_cookie, xiaohongshu_cookie_gen
@@ -21,6 +23,9 @@ CORS(app)
 
 # 限制上传文件大小为160MB
 app.config['MAX_CONTENT_LENGTH'] = 160 * 1024 * 1024
+
+# 初始化认证服务
+auth_service = AuthService(app)
 
 # 获取当前目录（假设 index.html 和 assets 在这里）
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -40,7 +45,133 @@ def favicon(filename):
 def hello_world():  # put application's code here
     return render_template('index.html')
 
+# ==================== 用户认证API ====================
+
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    """用户注册"""
+    data = request.get_json()
+    
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    
+    if not all([username, email, password]):
+        return jsonify({
+            'code': 400,
+            'msg': '用户名、邮箱和密码都是必填项',
+            'data': None
+        }), 400
+    
+    result = auth_service.register_user(username, email, password)
+    
+    if result['success']:
+        return jsonify({
+            'code': 200,
+            'msg': result['message'],
+            'data': {'user_id': result['user_id']}
+        }), 200
+    else:
+        return jsonify({
+            'code': 400,
+            'msg': result['message'],
+            'data': None
+        }), 400
+
+@app.route('/api/auth/login', methods=['POST'])
+def login_api():
+    """用户登录"""
+    data = request.get_json()
+    
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not all([username, password]):
+        return jsonify({
+            'code': 400,
+            'msg': '用户名和密码都是必填项',
+            'data': None
+        }), 400
+    
+    result = auth_service.authenticate_user(username, password)
+    
+    if result['success']:
+        return jsonify({
+            'code': 200,
+            'msg': result['message'],
+            'data': result['data']
+        }), 200
+    else:
+        return jsonify({
+            'code': 401,
+            'msg': result['message'],
+            'data': None
+        }), 401
+
+@app.route('/api/auth/logout', methods=['POST'])
+@require_user()
+def logout_api():
+    """用户登出"""
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    
+    result = auth_service.logout_user(token)
+    
+    return jsonify({
+        'code': 200,
+        'msg': result['message'],
+        'data': None
+    }), 200
+
+@app.route('/api/auth/profile', methods=['GET'])
+@require_user()
+def get_profile():
+    """获取当前用户信息"""
+    user = request.current_user
+    
+    return jsonify({
+        'code': 200,
+        'msg': '获取成功',
+        'data': {
+            'id': user['id'],
+            'username': user['username'],
+            'email': user['email'],
+            'role': user['role'],
+            'created_at': user['created_at']
+        }
+    }), 200
+
+@app.route('/api/auth/users', methods=['GET'])
+@require_admin()
+def get_all_users():
+    """获取所有用户（仅管理员）"""
+    try:
+        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, username, email, role, is_active, created_at
+                FROM auth_users
+                ORDER BY created_at DESC
+            ''')
+            
+            users = [dict(row) for row in cursor.fetchall()]
+            
+            return jsonify({
+                'code': 200,
+                'msg': '获取成功',
+                'data': users
+            }), 200
+            
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'获取用户列表失败: {str(e)}',
+            'data': None
+        }), 500
+
 @app.route('/upload', methods=['POST'])
+@require_user()
 def upload_file():
     if 'file' not in request.files:
         return jsonify({
@@ -85,6 +216,7 @@ def get_file():
 
 
 @app.route('/uploadSave', methods=['POST'])
+@require_user()
 def upload_save():
     if 'file' not in request.files:
         return jsonify({
@@ -120,12 +252,15 @@ def upload_save():
         # 保存文件
         file.save(filepath)
 
+        # 获取当前用户ID
+        current_user_id = get_jwt_identity()
+        
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                                INSERT INTO file_records (filename, filesize, file_path)
-            VALUES (?, ?, ?)
-                                ''', (filename, round(float(os.path.getsize(filepath)) / (1024 * 1024),2), final_filename))
+                                INSERT INTO file_records (filename, filesize, file_path, created_by)
+            VALUES (?, ?, ?, ?)
+                                ''', (filename, round(float(os.path.getsize(filepath)) / (1024 * 1024),2), final_filename, current_user_id))
             conn.commit()
             print("✅ 上传文件已记录")
 
@@ -146,6 +281,7 @@ def upload_save():
         }), 500
 
 @app.route('/getFiles', methods=['GET'])
+@require_user()
 def get_all_files():
     try:
         # 使用 with 自动管理数据库连接
@@ -174,6 +310,7 @@ def get_all_files():
 
 
 @app.route("/getValidAccounts",methods=['GET'])
+@require_user()
 async def getValidAccounts():
     with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
         cursor = conn.cursor()
@@ -205,6 +342,7 @@ async def getValidAccounts():
                         }),200
 
 @app.route('/deleteFile', methods=['GET'])
+@require_user()
 def delete_file():
     file_id = request.args.get('id')
 
@@ -255,6 +393,7 @@ def delete_file():
         }), 500
 
 @app.route('/deleteAccount', methods=['GET'])
+@require_user()
 def delete_account():
     account_id = int(request.args.get('id'))
 
@@ -297,6 +436,7 @@ def delete_account():
 
 # SSE 登录接口
 @app.route('/login')
+@require_user()
 def login():
     # 1 小红书 2 视频号 3 抖音 4 快手
     type = request.args.get('type')
@@ -321,6 +461,7 @@ def login():
     return response
 
 @app.route('/postVideo', methods=['POST'])
+@require_user()
 def postVideo():
     # 获取JSON数据
     data = request.get_json()
@@ -365,6 +506,7 @@ def postVideo():
 
 
 @app.route('/updateUserinfo', methods=['POST'])
+@require_user()
 def updateUserinfo():
     # 获取JSON数据
     data = request.get_json()
@@ -402,6 +544,7 @@ def updateUserinfo():
         }), 500
 
 @app.route('/postVideoBatch', methods=['POST'])
+@require_user()
 def postVideoBatch():
     data_list = request.get_json()
 

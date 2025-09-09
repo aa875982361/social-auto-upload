@@ -50,7 +50,33 @@
               <el-icon class="toggle-sidebar" @click="toggleSidebar"><Fold /></el-icon>
             </div>
             <div class="header-right">
-              <!-- 账号信息已移除 -->
+              <div v-if="userStore.isLoggedIn" class="user-info">
+                <el-dropdown @command="handleCommand">
+                  <div class="user-dropdown">
+                    <el-avatar :size="32" class="user-avatar">
+                      {{ userStore.user?.username?.charAt(0)?.toUpperCase() }}
+                    </el-avatar>
+                    <span class="username">{{ userStore.user?.username }}</span>
+                    <el-icon class="el-icon--right"><arrow-down /></el-icon>
+                  </div>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="profile">
+                        <el-icon><User /></el-icon>
+                        个人资料
+                      </el-dropdown-item>
+                      <el-dropdown-item v-if="userStore.isAdmin" command="users">
+                        <el-icon><Setting /></el-icon>
+                        用户管理
+                      </el-dropdown-item>
+                      <el-dropdown-item divided command="logout">
+                        <el-icon><SwitchButton /></el-icon>
+                        退出登录
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
             </div>
           </div>
         </el-header>
@@ -64,13 +90,17 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '@/stores/user'
 import { 
   HomeFilled, User, Monitor, DataAnalysis, 
-  Fold, Picture, Upload
+  Fold, Picture, Upload, ArrowDown, Setting, SwitchButton
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
+const router = useRouter()
+const userStore = useUserStore()
 
 // 当前激活的菜单项
 const activeMenu = computed(() => {
@@ -83,6 +113,38 @@ const isCollapse = ref(false)
 // 切换侧边栏折叠状态
 const toggleSidebar = () => {
   isCollapse.value = !isCollapse.value
+}
+
+// 处理下拉菜单命令
+const handleCommand = async (command) => {
+  switch (command) {
+    case 'profile':
+      // TODO: 显示个人资料弹窗
+      ElMessage.info('个人资料功能待完善')
+      break
+    case 'users':
+      // TODO: 跳转到用户管理页面
+      ElMessage.info('用户管理功能待完善')
+      break
+    case 'logout':
+      try {
+        await ElMessageBox.confirm(
+          '确定要退出登录吗？',
+          '提示',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+          }
+        )
+        await userStore.logout()
+        ElMessage.success('已退出登录')
+        router.push('/login')
+      } catch (error) {
+        // 用户取消操作
+      }
+      break
+  }
 }
 </script>
 
@@ -175,19 +237,36 @@ const toggleSidebar = () => {
     }
     
     .header-right {
-      .user-dropdown {
-        display: flex;
-        align-items: center;
-        cursor: pointer;
-        
-        .username {
-          margin: 0 8px;
-          color: $text-regular;
-        }
-        
-        .el-icon {
-          font-size: 12px;
-          color: $text-secondary;
+      .user-info {
+        .user-dropdown {
+          display: flex;
+          align-items: center;
+          cursor: pointer;
+          padding: 8px 12px;
+          border-radius: 6px;
+          transition: background-color 0.3s;
+          
+          &:hover {
+            background-color: #f5f5f5;
+          }
+          
+          .user-avatar {
+            margin-right: 8px;
+            background-color: $primary-color;
+            color: white;
+            font-weight: 600;
+          }
+          
+          .username {
+            margin-right: 8px;
+            color: $text-regular;
+            font-size: 14px;
+          }
+          
+          .el-icon {
+            font-size: 12px;
+            color: $text-secondary;
+          }
         }
       }
     }

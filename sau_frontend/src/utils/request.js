@@ -28,38 +28,38 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   (response) => {
-    const { data } = response
-    
-    // 根据后端接口规范处理响应
-    if (data.code === 200 || data.success) {
-      return data
-    } else {
-      ElMessage.error(data.message || '请求失败')
-      return Promise.reject(new Error(data.message || '请求失败'))
-    }
+    return response
   },
   (error) => {
     console.error('响应错误:', error)
     
     // 处理HTTP错误状态码
     if (error.response) {
-      const { status } = error.response
+      const { status, data } = error.response
+      
+      // 优先使用后端返回的错误信息
+      const message = data?.msg || data?.message
+      
       switch (status) {
         case 401:
-          ElMessage.error('未授权，请重新登录')
-          // 可以在这里处理登录跳转
+          ElMessage.error(message || '未授权，请重新登录')
+          // 清除token并跳转到登录页
+          localStorage.removeItem('token')
+          if (window.location.hash !== '#/login') {
+            window.location.hash = '#/login'
+          }
           break
         case 403:
-          ElMessage.error('拒绝访问')
+          ElMessage.error(message || '权限不足')
           break
         case 404:
-          ElMessage.error('请求地址不存在')
+          ElMessage.error(message || '请求地址不存在')
           break
         case 500:
-          ElMessage.error('服务器内部错误')
+          ElMessage.error(message || '服务器内部错误')
           break
         default:
-          ElMessage.error('网络错误')
+          ElMessage.error(message || '网络错误')
       }
     } else {
       ElMessage.error('网络连接失败')
