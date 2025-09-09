@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # 后端服务（开发环境）
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: sau-backend-dev
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./videoFile:/app/videoFile
+      - ./media:/app/media
+      - ./ssl:/app/ssl
+      - .:/app  # 挂载源代码用于热重载
+    ports:
+      - "5409:5409"
+    networks:
+      - sau-network
+    command: ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5409", "--reload"]
+
+  # 前端服务（开发环境）
+  frontend:
+    build:
+      context: ./sau_frontend
+      dockerfile: Dockerfile.dev
+    container_name: sau-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"  # Vite 开发服务器端口
+    volumes:
+      - ./sau_frontend:/app
+      - /app/node_modules  # 避免覆盖容器内的 node_modules
+    depends_on:
+      - backend
+    networks:
+      - sau-network
+    environment:
+      - VITE_API_BASE_URL=http://localhost:5409
+
+networks:
+  sau-network:
+    driver: bridge
