@@ -9,6 +9,7 @@ from conf import LOCAL_CHROME_PATH
 from utils.base_social_media import set_init_script
 from utils.files_times import get_absolute_path
 from utils.log import tencent_logger
+from utils.browser_config import get_browser_launch_options
 
 
 def format_str_for_short_title(origin_title: str) -> str:
@@ -51,12 +52,12 @@ async def cookie_auth(account_file):
 
 async def get_tencent_cookie(account_file):
     async with async_playwright() as playwright:
-        options = {
-            'args': [
-                '--lang en-GB'
-            ],
-            'headless': False,  # Set headless option here
-        }
+        # 获取浏览器启动选项（会根据Docker环境自动调整）
+        options = get_browser_launch_options()
+        # 添加语言参数
+        if 'args' not in options:
+            options['args'] = []
+        options['args'].append('--lang en-GB')
         # Make sure to run headed.
         browser = await playwright.chromium.launch(**options)
         # Setup context however you like.
@@ -135,7 +136,8 @@ class TencentVideo(object):
 
     async def upload(self, playwright: Playwright) -> None:
         # 使用 Chromium (这里使用系统内浏览器，用chromium 会造成h264错误
-        browser = await playwright.chromium.launch(headless=False, executable_path=self.local_executable_path)
+        browser_options = get_browser_launch_options(self.local_executable_path)
+        browser = await playwright.chromium.launch(**browser_options)
         # 创建一个浏览器上下文，使用指定的 cookie 文件
         context = await browser.new_context(storage_state=f"{self.account_file}")
         context = await set_init_script(context)

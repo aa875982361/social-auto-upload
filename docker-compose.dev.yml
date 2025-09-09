@@ -10,6 +10,7 @@ services:
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
+      - DOCKER_ENV=true
       - FLASK_ENV=development
       - FLASK_DEBUG=1
     volumes:

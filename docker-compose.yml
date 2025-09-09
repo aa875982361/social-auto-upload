@@ -10,8 +10,8 @@ services:
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
-      - FLASK_ENV=production
       - DOCKER_ENV=true
+      - FLASK_ENV=production
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

@@ -11,6 +11,7 @@ from uploader.tk_uploader.tk_config import Tk_Locator
 from utils.base_social_media import set_init_script
 from utils.files_times import get_absolute_path
 from utils.log import tiktok_logger
+from utils.browser_config import get_browser_launch_options
 
 
 async def cookie_auth(account_file):
@@ -146,7 +147,8 @@ class TiktokVideo(object):
         await file_chooser.set_files(self.file_path)
 
     async def upload(self, playwright: Playwright) -> None:
-        browser = await playwright.chromium.launch(headless=False, executable_path=self.local_executable_path)
+        browser_options = get_browser_launch_options(self.local_executable_path)
+        browser = await playwright.chromium.launch(**browser_options)
         context = await browser.new_context(storage_state=f"{self.account_file}")
         # context = await set_init_script(context)
         page = await context.new_page()

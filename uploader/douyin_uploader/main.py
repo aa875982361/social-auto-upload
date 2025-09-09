@@ -8,6 +8,7 @@ import asyncio
 from conf import LOCAL_CHROME_PATH
 from utils.base_social_media import set_init_script
 from utils.log import douyin_logger
+from utils.browser_config import get_browser_launch_options
 
 
 async def cookie_auth(account_file):
@@ -47,9 +48,8 @@ async def douyin_setup(account_file, handle=False):
 
 async def douyin_cookie_gen(account_file):
     async with async_playwright() as playwright:
-        options = {
-            'headless': False
-        }
+        # 获取浏览器启动选项（会根据Docker环境自动调整）
+        options = get_browser_launch_options()
         # Make sure to run headed.
         browser = await playwright.chromium.launch(**options)
         # Setup context however you like.
@@ -96,10 +96,8 @@ class DouYinVideo(object):
 
     async def upload(self, playwright: Playwright) -> None:
         # 使用 Chromium 浏览器启动一个浏览器实例
-        if self.local_executable_path:
-            browser = await playwright.chromium.launch(headless=False, executable_path=self.local_executable_path)
-        else:
-            browser = await playwright.chromium.launch(headless=False)
+        browser_options = get_browser_launch_options(self.local_executable_path)
+        browser = await playwright.chromium.launch(**browser_options)
         # 创建一个浏览器上下文，使用指定的 cookie 文件
         context = await browser.new_context(storage_state=f"{self.account_file}")
         context = await set_init_script(context)
