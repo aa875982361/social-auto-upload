@@ -118,12 +118,15 @@ class XiaoHongShuVideo(object):
 
         # 创建一个新的页面
         page = await context.new_page()
+        # 设置更长的默认超时时间
+        page.set_default_timeout(60000)  # 60秒超时
+        
         # 访问指定的 URL
-        await page.goto("https://creator.xiaohongshu.com/publish/publish?from=homepage&target=video")
+        await page.goto("https://creator.xiaohongshu.com/publish/publish?from=homepage&target=video", timeout=60000)
         xiaohongshu_logger.info(f'[+]正在上传-------{self.title}.mp4')
         # 等待页面跳转到指定的 URL，没进入，则自动等待到超时
         xiaohongshu_logger.info(f'[-] 正在打开主页...')
-        await page.wait_for_url("https://creator.xiaohongshu.com/publish/publish?from=homepage&target=video")
+        await page.wait_for_url("https://creator.xiaohongshu.com/publish/publish?from=homepage&target=video", timeout=60000)
         # 点击 "上传视频" 按钮
         await page.locator("div[class^='upload-content'] input[class='upload-input']").set_input_files(self.file_path)
 
@@ -161,6 +164,9 @@ class XiaoHongShuVideo(object):
         # 这里为了避免页面变化，故使用相对位置定位：作品标题父级右侧第一个元素的input子元素
         await asyncio.sleep(1)
         xiaohongshu_logger.info(f'  [-] 正在填充标题和话题...')
+        
+        # 等待页面完全加载
+        await page.wait_for_load_state("networkidle", timeout=30000)
         title_container = page.locator('div.plugin.title-container').locator('input.d-text')
         if await title_container.count():
             await title_container.fill(self.title[:30])
@@ -172,11 +178,66 @@ class XiaoHongShuVideo(object):
             await page.keyboard.press("Delete")
             await page.keyboard.type(self.title)
             await page.keyboard.press("Enter")
+        # 等待内容编辑器加载完成
         css_selector = ".ql-editor" # 不能加上 .ql-blank 属性，这样只能获取第一次非空状态
-        for index, tag in enumerate(self.tags, start=1):
-            await page.type(css_selector, "#" + tag)
-            await page.press(css_selector, "Space")
-        xiaohongshu_logger.info(f'总共添加{len(self.tags)}个话题')
+        try:
+            # 等待编辑器元素出现并且可交互
+            await page.wait_for_selector(css_selector, timeout=60000, state="visible")
+            await asyncio.sleep(1)  # 额外等待确保元素完全加载
+            
+            # 点击编辑器确保焦点
+            await page.click(css_selector)
+            await asyncio.sleep(0.5)
+            
+            for index, tag in enumerate(self.tags, start=1):
+                try:
+                    # 重新检查元素是否可用
+                    await page.wait_for_selector(css_selector, timeout=10000, state="visible")
+                    await page.type(css_selector, "#" + tag, delay=100)  # 添加延迟避免输入过快
+                    await page.press(css_selector, "Space")
+                    await asyncio.sleep(0.3)  # 每个标签输入后短暂等待
+                    xiaohongshu_logger.info(f'已添加话题: #{tag}')
+                except Exception as e:
+                    xiaohongshu_logger.error(f'添加话题 #{tag} 失败: {str(e)}')
+                    # 尝试重新点击编辑器
+                    try:
+                        await page.click(css_selector)
+                        await asyncio.sleep(0.5)
+                        await page.type(css_selector, "#" + tag, delay=100)
+                        await page.press(css_selector, "Space")
+                        xiaohongshu_logger.info(f'重试成功添加话题: #{tag}')
+                    except Exception as retry_e:
+                        xiaohongshu_logger.error(f'重试添加话题 #{tag} 仍然失败: {str(retry_e)}')
+                        continue
+            
+            xiaohongshu_logger.info(f'总共尝试添加{len(self.tags)}个话题')
+            
+        except Exception as e:
+            xiaohongshu_logger.error(f'等待编辑器元素失败: {str(e)}')
+            # 尝试备用方案：使用替代选择器
+            alternative_selectors = [
+                "div[contenteditable='true']",
+                ".ql-container .ql-editor", 
+                "[data-placeholder]",
+                "div[role='textbox']"
+            ]
+            
+            for alt_selector in alternative_selectors:
+                try:
+                    await page.wait_for_selector(alt_selector, timeout=5000, state="visible")
+                    xiaohongshu_logger.info(f'使用备用选择器: {alt_selector}')
+                    await page.click(alt_selector)
+                    await asyncio.sleep(0.5)
+                    
+                    for tag in self.tags:
+                        await page.type(alt_selector, "#" + tag, delay=100)
+                        await page.press(alt_selector, "Space")
+                        await asyncio.sleep(0.3)
+                    break
+                except:
+                    continue
+            else:
+                xiaohongshu_logger.error('所有编辑器选择器都失败，跳过话题添加')
 
         # while True:
         #     # 判断重新上传按钮是否存在，如果不存在，代表视频正在上传，则等待
