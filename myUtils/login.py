@@ -1,5 +1,6 @@
 import asyncio
 import sqlite3
+import os
 
 from playwright.async_api import async_playwright
 
@@ -9,6 +10,8 @@ import uuid
 from pathlib import Path
 from conf import BASE_DIR
 
+from utils.browser_config import get_browser_options, is_docker_env
+
 # 抖音登录
 async def douyin_cookie_gen(id,status_queue):
     url_changed_event = asyncio.Event()
@@ -17,9 +20,7 @@ async def douyin_cookie_gen(id,status_queue):
         if page.url != original_url:
             url_changed_event.set()
     async with async_playwright() as playwright:
-        options = {
-            'headless': False
-        }
+        options = get_browser_options()
         # Make sure to run headed.
         browser = await playwright.chromium.launch(**options)
         # Setup context however you like.
@@ -81,12 +82,9 @@ async def get_tencent_cookie(id,status_queue):
             url_changed_event.set()
 
     async with async_playwright() as playwright:
-        options = {
-            'args': [
-                '--lang en-GB'
-            ],
-            'headless': False,  # Set headless option here
-        }
+        options = get_browser_options()
+        if not is_docker_env():
+            options['args'] = ['--lang en-GB']
         # Make sure to run headed.
         browser = await playwright.chromium.launch(**options)
         # Setup context however you like.
@@ -155,12 +153,9 @@ async def get_ks_cookie(id,status_queue):
         if page.url != original_url:
             url_changed_event.set()
     async with async_playwright() as playwright:
-        options = {
-            'args': [
-                '--lang en-GB'
-            ],
-            'headless': False,  # Set headless option here
-        }
+        options = get_browser_options()
+        if not is_docker_env():
+            options['args'] = ['--lang en-GB']
         # Make sure to run headed.
         browser = await playwright.chromium.launch(**options)
         # Setup context however you like.
@@ -228,12 +223,9 @@ async def xiaohongshu_cookie_gen(id,status_queue):
             url_changed_event.set()
 
     async with async_playwright() as playwright:
-        options = {
-            'args': [
-                '--lang en-GB'
-            ],
-            'headless': False,  # Set headless option here
-        }
+        options = get_browser_options()
+        if not is_docker_env():
+            options['args'] = ['--lang en-GB']
         # Make sure to run headed.
         browser = await playwright.chromium.launch(**options)
         # Setup context however you like.

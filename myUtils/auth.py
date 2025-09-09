@@ -10,10 +10,12 @@ from utils.base_social_media import set_init_script
 from utils.log import tencent_logger, kuaishou_logger
 from pathlib import Path
 from uploader.xhs_uploader.main import sign_local
+from utils.browser_config import get_browser_options
 
 async def cookie_auth_douyin(account_file):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=True)
+        options = get_browser_options()
+        browser = await playwright.chromium.launch(**options)
         context = await browser.new_context(storage_state=account_file)
         context = await set_init_script(context)
         # 创建一个新的页面
@@ -37,7 +39,8 @@ async def cookie_auth_douyin(account_file):
 
 async def cookie_auth_tencent(account_file):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=True)
+        options = get_browser_options()
+        browser = await playwright.chromium.launch(**options)
         context = await browser.new_context(storage_state=account_file)
         context = await set_init_script(context)
         # 创建一个新的页面
@@ -54,7 +57,8 @@ async def cookie_auth_tencent(account_file):
 
 async def cookie_auth_ks(account_file):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=True)
+        options = get_browser_options()
+        browser = await playwright.chromium.launch(**options)
         context = await browser.new_context(storage_state=account_file)
         context = await set_init_script(context)
         # 创建一个新的页面
@@ -73,7 +77,8 @@ async def cookie_auth_ks(account_file):
 
 async def cookie_auth_xhs(account_file):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=True)
+        options = get_browser_options()
+        browser = await playwright.chromium.launch(**options)
         context = await browser.new_context(storage_state=account_file)
         context = await set_init_script(context)
         # 创建一个新的页面
