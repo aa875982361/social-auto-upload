@@ -141,7 +141,7 @@ class AuthService:
                 
                 # 生成JWT token
                 access_token = create_access_token(
-                    identity=user['id'],
+                    identity=str(user['id']),  # 转换为字符串
                     additional_claims={
                         'username': user['username'],
                         'role': user['role']
@@ -244,7 +244,7 @@ def require_auth(roles=None):
         @wraps(f)
         @jwt_required()
         def decorated_function(*args, **kwargs):
-            current_user_id = get_jwt_identity()
+            current_user_id = int(get_jwt_identity())  # 转换为整数
             claims = get_jwt()
             
             # 检查用户是否仍然有效

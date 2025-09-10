@@ -31,15 +31,15 @@ export const useUserStore = defineStore('user', () => {
   // 用户登录
   const login = async (credentials) => {
     try {
-      const response = await request.post('/api/auth/login', credentials)
+      const data = await request.post('/api/auth/login', credentials)
       
-      if (response.data.code === 200) {
-        const { access_token, ...userInfo } = response.data.data
+      if (data.code === 200) {
+        const { access_token, ...userInfo } = data.data
         setToken(access_token)
         setUser(userInfo)
         return userInfo
       } else {
-        throw new Error(response.data.msg || '登录失败')
+        throw new Error(data.msg || '登录失败')
       }
     } catch (error) {
       console.error('Login error:', error)

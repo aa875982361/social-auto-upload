@@ -253,7 +253,7 @@ def upload_save():
         file.save(filepath)
 
         # 获取当前用户ID
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())
         
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             cursor = conn.cursor()
@@ -311,7 +311,7 @@ def get_all_files():
 
 @app.route("/getValidAccounts",methods=['GET'])
 @require_user()
-async def getValidAccounts():
+def getValidAccounts():
     with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
         cursor = conn.cursor()
         cursor.execute('''
@@ -322,7 +322,8 @@ async def getValidAccounts():
         for row in rows:
             print(row)
         for row in rows_list:
-            flag = await check_cookie(row[1],row[2])
+            # 使用 asyncio.run 来运行异步函数
+            flag = asyncio.run(check_cookie(row[1],row[2]))
             if not flag:
                 row[4] = 0
                 cursor.execute('''
