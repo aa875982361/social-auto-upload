@@ -9,7 +9,7 @@ from queue import Queue
 from flask_cors import CORS
 from flask_jwt_extended import get_jwt_identity
 from myUtils.auth import check_cookie
-from myUtils.auth_service import AuthService, require_auth, require_admin, require_user
+from myUtils.auth_service import AuthService, require_auth, require_admin, require_user, verify_token_from_params
 from flask import Flask, request, jsonify, Response, render_template, send_from_directory
 from conf import BASE_DIR
 from myUtils.login import get_tencent_cookie, douyin_cookie_gen, get_ks_cookie, xiaohongshu_cookie_gen
@@ -414,38 +414,49 @@ def get_all_files():
 @app.route("/getValidAccounts",methods=['GET'])
 @require_user()
 def getValidAccounts():
-    # 获取当前用户ID
-    current_user_id = int(get_jwt_identity())
-    
-    with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
-        cursor = conn.cursor()
-        # 只查询当前用户创建的账号
-        print(f"\n🔍 用户{current_user_id}正在查询账号，类型: {type(current_user_id)}")
-        cursor.execute('''
-        SELECT * FROM user_info WHERE created_by = ?''', (current_user_id,))
-        rows = cursor.fetchall()
-        rows_list = [list(row) for row in rows]
-        print(f"\n📋 用户{current_user_id}的账号数据，共{len(rows)}条")
-        # 注释掉cookie验证，避免在测试时因为没有真实cookie文件导致账号被过滤
-        # for row in rows_list:
-        #     # 使用 asyncio.run 来运行异步函数
-        #     flag = asyncio.run(check_cookie(row[1],row[2]))
-        #     if not flag:
-        #         row[4] = 0
-        #         cursor.execute('''
-        #         UPDATE user_info 
-        #         SET status = ? 
-        #         WHERE id = ? AND created_by = ?
-        #         ''', (0, row[0], current_user_id))
-        #         conn.commit()
-        #         print("✅ 用户状态已更新")
+    try:
+        # 获取当前用户ID
+        current_user_id = int(get_jwt_identity())
         
-        return jsonify(
-                        {
-                            "code": 200,
-                            "msg": None,
-                            "data": rows_list
-                        }),200
+        # 安全日志记录
+        print(f"\n🔒 账号查询请求 - 用户ID: {current_user_id}")
+        
+        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+            cursor = conn.cursor()
+            
+            # 严格的数据隔离查询 - 只返回当前用户创建的账号
+            cursor.execute('''
+                SELECT id, type, filePath, userName, status, created_by 
+                FROM user_info 
+                WHERE created_by = ? AND created_by IS NOT NULL
+                ORDER BY id
+            ''', (current_user_id,))
+            
+            rows = cursor.fetchall()
+            
+            # 二次验证：确保所有返回的账号都属于当前用户
+            validated_rows = []
+            for row in rows:
+                if row[5] == current_user_id:  # created_by 字段
+                    validated_rows.append(list(row))
+                else:
+                    print(f"⚠️ 安全警告: 发现不属于用户{current_user_id}的账号: {row}")
+            
+            print(f"✅ 用户{current_user_id}成功获取{len(validated_rows)}个账号")
+            
+            return jsonify({
+                "code": 200,
+                "msg": None,
+                "data": validated_rows
+            }), 200
+            
+    except Exception as e:
+        print(f"❌ 获取账号失败: {str(e)}")
+        return jsonify({
+            "code": 500,
+            "msg": "获取账号数据失败",
+            "data": []
+        }), 500
 
 @app.route('/deleteFile', methods=['GET'])
 @require_user()
@@ -513,57 +524,98 @@ def delete_file():
 @app.route('/deleteAccount', methods=['GET'])
 @require_user()
 def delete_account():
-    account_id = int(request.args.get('id'))
-    # 获取当前用户ID
-    current_user_id = int(get_jwt_identity())
-
     try:
-        # 获取数据库连接
+        account_id = request.args.get('id')
+        if not account_id or not account_id.isdigit():
+            return jsonify({
+                "code": 400,
+                "msg": "无效的账号ID",
+                "data": None
+            }), 400
+            
+        account_id = int(account_id)
+        current_user_id = int(get_jwt_identity())
+
+        print(f"\n🗑️ 删除账号请求 - 用户ID: {current_user_id}, 账号ID: {account_id}")
+
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            # 查询要删除的记录，确保账号属于当前用户
-            cursor.execute("SELECT * FROM user_info WHERE id = ? AND created_by = ?", (account_id, current_user_id))
+            # 严格验证账号所有权
+            cursor.execute('''
+                SELECT * FROM user_info 
+                WHERE id = ? AND created_by = ? AND created_by IS NOT NULL
+            ''', (account_id, current_user_id))
             record = cursor.fetchone()
 
             if not record:
+                print(f"⚠️ 拒绝删除: 用户{current_user_id}尝试删除不属于自己的账号{account_id}")
                 return jsonify({
                     "code": 404,
-                    "msg": "account not found or access denied",
+                    "msg": "账号不存在或无权限删除",
                     "data": None
                 }), 404
 
-            record = dict(record)
+            # 二次验证所有权
+            if record['created_by'] != current_user_id:
+                print(f"⚠️ 安全警告: 所有权验证失败 - 账号{account_id}属于用户{record['created_by']}，不是{current_user_id}")
+                return jsonify({
+                    "code": 403,
+                    "msg": "无权限删除此账号",
+                    "data": None
+                }), 403
 
             # 删除数据库记录
             cursor.execute("DELETE FROM user_info WHERE id = ? AND created_by = ?", (account_id, current_user_id))
+            deleted_count = cursor.rowcount
             conn.commit()
+            
+            if deleted_count == 0:
+                print(f"⚠️ 删除失败: 没有删除任何记录")
+                return jsonify({
+                    "code": 404,
+                    "msg": "删除失败，账号不存在",
+                    "data": None
+                }), 404
+
+            print(f"✅ 用户{current_user_id}成功删除账号{account_id}")
 
         return jsonify({
             "code": 200,
-            "msg": "account deleted successfully",
+            "msg": "账号删除成功",
             "data": None
         }), 200
 
+    except ValueError:
+        return jsonify({
+            "code": 400,
+            "msg": "无效的账号ID格式",
+            "data": None
+        }), 400
     except Exception as e:
+        print(f"❌ 删除账号失败: {str(e)}")
         return jsonify({
             "code": 500,
-            "msg": str("delete failed!"),
+            "msg": "删除账号失败",
             "data": None
         }), 500
 
 
 # SSE 登录接口
 @app.route('/login')
-@require_user()
 def login():
+    # 验证token
+    is_valid, user, error_response = verify_token_from_params()
+    if not is_valid:
+        return error_response
+    
     # 1 小红书 2 视频号 3 抖音 4 快手
     type = request.args.get('type')
     # 账号名
     id = request.args.get('id')
     # 获取当前用户ID
-    current_user_id = int(get_jwt_identity())
+    current_user_id = user['id']
 
     # 模拟一个用于异步通信的队列
     status_queue = Queue()
@@ -663,52 +715,92 @@ def postVideo():
 @app.route('/updateUserinfo', methods=['POST'])
 @require_user()
 def updateUserinfo():
-    # 获取JSON数据
-    data = request.get_json()
-
-    # 从JSON数据中提取 type 和 userName
-    user_id = data.get('id')
-    type = data.get('type')
-    userName = data.get('userName')
-    # 获取当前用户ID
-    current_user_id = int(get_jwt_identity())
-    
     try:
-        # 获取数据库连接
+        # 获取JSON数据
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "code": 400,
+                "msg": "请求数据不能为空",
+                "data": None
+            }), 400
+
+        # 从JSON数据中提取必要字段
+        user_id = data.get('id')
+        type_value = data.get('type')
+        userName = data.get('userName')
+        
+        # 验证必要字段
+        if not all([user_id, type_value is not None, userName]):
+            return jsonify({
+                "code": 400,
+                "msg": "缺少必要字段: id, type, userName",
+                "data": None
+            }), 400
+            
+        current_user_id = int(get_jwt_identity())
+        
+        print(f"\n✏️ 更新账号请求 - 用户ID: {current_user_id}, 账号ID: {user_id}")
+
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            # 先检查账号是否属于当前用户
-            cursor.execute("SELECT * FROM user_info WHERE id = ? AND created_by = ?", (user_id, current_user_id))
+            # 严格验证账号所有权
+            cursor.execute('''
+                SELECT * FROM user_info 
+                WHERE id = ? AND created_by = ? AND created_by IS NOT NULL
+            ''', (user_id, current_user_id))
             record = cursor.fetchone()
             
             if not record:
+                print(f"⚠️ 拒绝更新: 用户{current_user_id}尝试更新不属于自己的账号{user_id}")
                 return jsonify({
                     "code": 404,
-                    "msg": "account not found or access denied",
+                    "msg": "账号不存在或无权限修改",
                     "data": None
                 }), 404
 
+            # 二次验证所有权
+            if record['created_by'] != current_user_id:
+                print(f"⚠️ 安全警告: 所有权验证失败 - 账号{user_id}属于用户{record['created_by']}，不是{current_user_id}")
+                return jsonify({
+                    "code": 403,
+                    "msg": "无权限修改此账号",
+                    "data": None
+                }), 403
+
             # 更新数据库记录
             cursor.execute('''
-                           UPDATE user_info
-                           SET type     = ?,
-                               userName = ?
-                           WHERE id = ? AND created_by = ?;
-                           ''', (type, userName, user_id, current_user_id))
+                UPDATE user_info
+                SET type = ?, userName = ?
+                WHERE id = ? AND created_by = ?
+            ''', (type_value, userName, user_id, current_user_id))
+            
+            updated_count = cursor.rowcount
             conn.commit()
+            
+            if updated_count == 0:
+                print(f"⚠️ 更新失败: 没有更新任何记录")
+                return jsonify({
+                    "code": 404,
+                    "msg": "更新失败，账号不存在",
+                    "data": None
+                }), 404
+
+            print(f"✅ 用户{current_user_id}成功更新账号{user_id}")
 
         return jsonify({
             "code": 200,
-            "msg": "account update successfully",
+            "msg": "账号更新成功",
             "data": None
         }), 200
 
     except Exception as e:
+        print(f"❌ 更新账号失败: {str(e)}")
         return jsonify({
             "code": 500,
-            "msg": str("update failed!"),
+            "msg": "更新账号失败",
             "data": None
         }), 500
 

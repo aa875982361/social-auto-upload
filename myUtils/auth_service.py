@@ -8,7 +8,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from flask import current_app, request, jsonify
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt, decode_token
 import bcrypt
 from functools import wraps
 from conf import BASE_DIR
@@ -283,3 +283,50 @@ def require_admin():
 def require_user():
     """用户权限装饰器（包括管理员）"""
     return require_auth(['user', 'admin'])
+
+
+def verify_token_from_params():
+    """
+    从URL参数中验证token
+    返回: (is_valid, user_info, error_response)
+    """
+    try:
+        # 从URL参数获取token
+        token = request.args.get('token')
+        if not token:
+            return False, None, jsonify({
+                'code': 401,
+                'msg': '缺少认证token',
+                'data': None
+            }), 401
+        
+        # 解码token
+        try:
+            decoded_token = decode_token(token)
+            user_id = int(decoded_token['sub'])
+        except Exception as e:
+            return False, None, jsonify({
+                'code': 401,
+                'msg': 'Token无效或已过期',
+                'data': None
+            }), 401
+        
+        # 验证用户是否存在
+        auth_service = AuthService()
+        user = auth_service.get_user_by_id(user_id)
+        
+        if not user:
+            return False, None, jsonify({
+                'code': 401,
+                'msg': '用户不存在或已被禁用',
+                'data': None
+            }), 401
+        
+        return True, user, None
+        
+    except Exception as e:
+        return False, None, jsonify({
+            'code': 500,
+            'msg': f'Token验证失败: {str(e)}',
+            'data': None
+        }), 500
