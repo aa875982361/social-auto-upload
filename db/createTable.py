@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS user_info (
     type INTEGER NOT NULL,
     filePath TEXT NOT NULL,  -- 存储文件路径
     userName TEXT NOT NULL,
-    status INTEGER DEFAULT 0
+    status INTEGER DEFAULT 0,
+    created_by INTEGER,      -- 创建者用户ID
+    FOREIGN KEY (created_by) REFERENCES auth_users(id)
 )
 ''')
 
@@ -78,6 +80,30 @@ if admin_count == 0:
     VALUES (?, ?, ?, ?)
     ''', ('admin', 'admin@example.com', password_hash, 'admin'))
     print("✅ 创建默认管理员账号: admin/ljlqweboanndieuyqwenqwjkehia")
+
+# 检查并添加 created_by 字段到 user_info 表
+try:
+    cursor.execute("PRAGMA table_info(user_info)")
+    columns = [column[1] for column in cursor.fetchall()]
+    
+    if 'created_by' not in columns:
+        cursor.execute('ALTER TABLE user_info ADD COLUMN created_by INTEGER')
+        print("✅ 已为 user_info 表添加 created_by 字段")
+        
+        # 如果存在现有数据，将其关联到默认管理员账户
+        cursor.execute("SELECT COUNT(*) FROM user_info WHERE created_by IS NULL")
+        count = cursor.fetchone()[0]
+        if count > 0:
+            cursor.execute("SELECT id FROM auth_users WHERE role = 'admin' LIMIT 1")
+            admin_user = cursor.fetchone()
+            if admin_user:
+                cursor.execute("UPDATE user_info SET created_by = ? WHERE created_by IS NULL", (admin_user[0],))
+                print(f"✅ 已将 {count} 个现有账号关联到管理员用户")
+    else:
+        print("✅ user_info 表已包含 created_by 字段")
+        
+except Exception as e:
+    print(f"⚠️ 更新 user_info 表时出错: {e}")
 
 # 提交更改
 conn.commit()

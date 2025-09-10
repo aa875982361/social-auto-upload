@@ -50,12 +50,12 @@ export const useUserStore = defineStore('user', () => {
   // 用户注册
   const register = async (userInfo) => {
     try {
-      const response = await request.post('/api/auth/register', userInfo)
+      const data = await request.post('/api/auth/register', userInfo)
       
-      if (response.data.code === 200) {
-        return response.data.data
+      if (data.code === 200) {
+        return data.data
       } else {
-        throw new Error(response.data.msg || '注册失败')
+        throw new Error(data.msg || '注册失败')
       }
     } catch (error) {
       console.error('Register error:', error)

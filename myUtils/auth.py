@@ -101,20 +101,27 @@ async def cookie_auth_xhs(account_file):
             return True
 
 
-async def check_cookie(type,file_path):
+async def check_cookie(type, file_path):
+    """检查cookie有效性，file_path可以是完整路径或相对路径"""
+    # 如果是完整路径，直接使用；否则使用旧的cookiesFile目录
+    if Path(file_path).is_absolute() or '/' in file_path or '\\' in file_path:
+        full_path = Path(file_path)
+    else:
+        full_path = Path(BASE_DIR / "cookiesFile" / file_path)
+    
     match type:
         # 小红书
         case 1:
-            return await cookie_auth_xhs(Path(BASE_DIR / "cookiesFile" / file_path))
+            return await cookie_auth_xhs(full_path)
         # 视频号
         case 2:
-            return await cookie_auth_tencent(Path(BASE_DIR / "cookiesFile" / file_path))
+            return await cookie_auth_tencent(full_path)
         # 抖音
         case 3:
-            return await cookie_auth_douyin(Path(BASE_DIR / "cookiesFile" / file_path))
+            return await cookie_auth_douyin(full_path)
         # 快手
         case 4:
-            return await cookie_auth_ks(Path(BASE_DIR / "cookiesFile" / file_path))
+            return await cookie_auth_ks(full_path)
         case _:
             return False
 

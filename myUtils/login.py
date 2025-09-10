@@ -10,10 +10,17 @@ import uuid
 from pathlib import Path
 from conf import BASE_DIR
 
+def get_user_account_dir(user_id):
+    """获取用户专属账号目录"""
+    from pathlib import Path
+    account_dir = Path(BASE_DIR / "data" / "users" / str(user_id) / "accounts")
+    account_dir.mkdir(parents=True, exist_ok=True)
+    return account_dir
+
 from utils.browser_config import get_browser_options, is_docker_env
 
 # 抖音登录
-async def douyin_cookie_gen(id,status_queue):
+async def douyin_cookie_gen(id,status_queue,current_user_id):
     url_changed_event = asyncio.Event()
     async def on_url_change():
         # 检查是否是主框架的变化
@@ -51,8 +58,10 @@ async def douyin_cookie_gen(id,status_queue):
             return None
         uuid_v1 = uuid.uuid1()
         print(f"UUID v1: {uuid_v1}")
-        await context.storage_state(path=Path(BASE_DIR / "cookiesFile" / f"{uuid_v1}.json"))
-        result = await check_cookie(3, f"{uuid_v1}.json")
+        user_account_dir = get_user_account_dir(current_user_id)
+        account_file_path = user_account_dir / f"{uuid_v1}.json"
+        await context.storage_state(path=str(account_file_path))
+        result = await check_cookie(3, str(account_file_path))
         if not result:
             status_queue.put("500")
             await page.close()
@@ -65,16 +74,16 @@ async def douyin_cookie_gen(id,status_queue):
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                                INSERT INTO user_info (type, filePath, userName, status)
-                                VALUES (?, ?, ?, ?)
-                                ''', (3, f"{uuid_v1}.json", id, 1))
+                                INSERT INTO user_info (type, filePath, userName, status, created_by)
+                                VALUES (?, ?, ?, ?, ?)
+                                ''', (3, str(account_file_path), id, 1, current_user_id))
             conn.commit()
             print("✅ 用户状态已记录")
         status_queue.put("200")
 
 
 # 视频号登录
-async def get_tencent_cookie(id,status_queue):
+async def get_tencent_cookie(id,status_queue,current_user_id):
     url_changed_event = asyncio.Event()
     async def on_url_change():
         # 检查是否是主框架的变化
@@ -123,8 +132,10 @@ async def get_tencent_cookie(id,status_queue):
             return None
         uuid_v1 = uuid.uuid1()
         print(f"UUID v1: {uuid_v1}")
-        await context.storage_state(path=Path(BASE_DIR / "cookiesFile" / f"{uuid_v1}.json"))
-        result = await check_cookie(2,f"{uuid_v1}.json")
+        user_account_dir = get_user_account_dir(current_user_id)
+        account_file_path = user_account_dir / f"{uuid_v1}.json"
+        await context.storage_state(path=str(account_file_path))
+        result = await check_cookie(2, str(account_file_path))
         if not result:
             status_queue.put("500")
             await page.close()
@@ -138,15 +149,15 @@ async def get_tencent_cookie(id,status_queue):
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                                INSERT INTO user_info (type, filePath, userName, status)
-                                VALUES (?, ?, ?, ?)
-                                ''', (2, f"{uuid_v1}.json", id, 1))
+                                INSERT INTO user_info (type, filePath, userName, status, created_by)
+                                VALUES (?, ?, ?, ?, ?)
+                                ''', (2, str(account_file_path), id, 1, current_user_id))
             conn.commit()
             print("✅ 用户状态已记录")
         status_queue.put("200")
 
 # 快手登录
-async def get_ks_cookie(id,status_queue):
+async def get_ks_cookie(id,status_queue,current_user_id):
     url_changed_event = asyncio.Event()
     async def on_url_change():
         # 检查是否是主框架的变化
@@ -191,8 +202,10 @@ async def get_ks_cookie(id,status_queue):
             return None
         uuid_v1 = uuid.uuid1()
         print(f"UUID v1: {uuid_v1}")
-        await context.storage_state(path=Path(BASE_DIR / "cookiesFile" / f"{uuid_v1}.json"))
-        result = await check_cookie(4, f"{uuid_v1}.json")
+        user_account_dir = get_user_account_dir(current_user_id)
+        account_file_path = user_account_dir / f"{uuid_v1}.json"
+        await context.storage_state(path=str(account_file_path))
+        result = await check_cookie(4, str(account_file_path))
         if not result:
             status_queue.put("500")
             await page.close()
@@ -206,15 +219,15 @@ async def get_ks_cookie(id,status_queue):
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                                        INSERT INTO user_info (type, filePath, userName, status)
-                                        VALUES (?, ?, ?, ?)
-                                        ''', (4, f"{uuid_v1}.json", id, 1))
+                                        INSERT INTO user_info (type, filePath, userName, status, created_by)
+                                        VALUES (?, ?, ?, ?, ?)
+                                        ''', (4, str(account_file_path), id, 1, current_user_id))
             conn.commit()
             print("✅ 用户状态已记录")
         status_queue.put("200")
 
 # 小红书登录
-async def xiaohongshu_cookie_gen(id,status_queue):
+async def xiaohongshu_cookie_gen(id,status_queue,current_user_id):
     url_changed_event = asyncio.Event()
 
     async def on_url_change():
@@ -259,8 +272,10 @@ async def xiaohongshu_cookie_gen(id,status_queue):
             return None
         uuid_v1 = uuid.uuid1()
         print(f"UUID v1: {uuid_v1}")
-        await context.storage_state(path=Path(BASE_DIR / "cookiesFile" / f"{uuid_v1}.json"))
-        result = await check_cookie(1, f"{uuid_v1}.json")
+        user_account_dir = get_user_account_dir(current_user_id)
+        account_file_path = user_account_dir / f"{uuid_v1}.json"
+        await context.storage_state(path=str(account_file_path))
+        result = await check_cookie(1, str(account_file_path))
         if not result:
             status_queue.put("500")
             await page.close()
@@ -274,9 +289,9 @@ async def xiaohongshu_cookie_gen(id,status_queue):
         with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                           INSERT INTO user_info (type, filePath, userName, status)
-                           VALUES (?, ?, ?, ?)
-                           ''', (1, f"{uuid_v1}.json", id, 1))
+                           INSERT INTO user_info (type, filePath, userName, status, created_by)
+                           VALUES (?, ?, ?, ?, ?)
+                           ''', (1, str(account_file_path), id, 1, current_user_id))
             conn.commit()
             print("✅ 用户状态已记录")
         status_queue.put("200")
