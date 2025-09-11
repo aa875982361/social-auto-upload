@@ -15,6 +15,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/conf.d:/etc/mysql/conf.d
+      - ./mysql/init:/docker-entrypoint-initdb.d
     ports:
       - "3306:3306"
     networks:
@@ -34,15 +35,12 @@ services:
       dockerfile: Dockerfile.backend
     container_name: sau-backend
     restart: unless-stopped
+    env_file:
+      - docker.env
     environment:
       - PYTHONUNBUFFERED=1
       - DOCKER_ENV=true
       - FLASK_ENV=production
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USER=sau_user
-      - DB_PASSWORD=sau_password
-      - DB_NAME=social_auto_upload
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

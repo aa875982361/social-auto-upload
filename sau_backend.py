@@ -14,6 +14,7 @@ from conf import BASE_DIR
 from myUtils.login import get_tencent_cookie, douyin_cookie_gen, get_ks_cookie, xiaohongshu_cookie_gen
 from myUtils.postVideo import post_video_tencent, post_video_DouYin, post_video_ks, post_video_xhs
 from db.mysql_connection import mysql_connect
+from utils.account_data_manager import AccountDataManager
 
 active_queues = {}
 app = Flask(__name__)
@@ -424,23 +425,23 @@ def getValidAccounts():
         with mysql_connect() as conn:
             cursor = conn.cursor()
             
-            # 严格的数据隔离查询 - 只返回当前用户创建的账号
-            cursor.execute('''
-                SELECT id, type, filePath, userName, status, created_by 
-                FROM user_info 
-                WHERE created_by = %s AND created_by IS NOT NULL
-                ORDER BY id
-            ''', (current_user_id,))
+            # 获取用户账户信息，包含数据有效性状态
+            accounts_with_data = AccountDataManager.get_user_accounts_with_data(current_user_id)
             
-            rows = cursor.fetchall()
-            
-            # 二次验证：确保所有返回的账号都属于当前用户
+            # 格式化返回数据，添加数据有效性信息
             validated_rows = []
-            for row in rows:
-                if row['created_by'] == current_user_id:  # created_by 字段
-                    validated_rows.append(list(row.values()) if hasattr(row, 'values') else list(row))
-                else:
-                    print(f"⚠️ 安全警告: 发现不属于用户{current_user_id}的账号: {row}")
+            for row in accounts_with_data:
+                # row格式: (id, type, filePath, userName, status, has_data, is_valid)
+                account_data = [
+                    row[0],  # id
+                    row[1],  # type
+                    row[2],  # filePath
+                    row[3],  # userName
+                    row[4],  # status
+                    row[5],  # has_data (0/1)
+                    row[6]   # is_valid (0/1)
+                ]
+                validated_rows.append(account_data)
             
             print(f"✅ 用户{current_user_id}成功获取{len(validated_rows)}个账号")
             

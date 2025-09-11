@@ -17,6 +17,9 @@ export const useAccountStore = defineStore('account', () => {
   const setAccounts = (accountsData) => {
     // 转换后端返回的数据格式为前端使用的格式
     accounts.value = accountsData.map(item => {
+      const hasData = item.length > 5 ? item[5] : 1  // 向后兼容，默认有数据
+      const isValid = item.length > 6 ? item[6] : 1  // 向后兼容，默认有效
+      
       return {
         id: item[0],
         type: item[1],
@@ -24,7 +27,10 @@ export const useAccountStore = defineStore('account', () => {
         name: item[3],
         status: item[4] === 1 ? '正常' : '异常',
         platform: platformTypes[item[1]] || '未知',
-        avatar: '/vite.svg' // 默认使用vite.svg作为头像
+        avatar: '/vite.svg', // 默认使用vite.svg作为头像
+        hasData: hasData === 1,     // 是否有登录数据
+        isValid: isValid === 1,     // 数据是否有效
+        dataStatus: isValid === 1 ? '有效' : (hasData === 1 ? '已过期' : '无数据')  // 数据状态描述
       }
     })
   }

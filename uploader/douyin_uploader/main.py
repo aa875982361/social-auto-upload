@@ -9,6 +9,7 @@ from conf import LOCAL_CHROME_PATH
 from utils.base_social_media import set_init_script
 from utils.log import douyin_logger
 from utils.browser_config import get_browser_launch_options
+from utils.account_context_manager import storage_state_context, AccountContextManager
 
 
 async def cookie_auth(account_file):
@@ -98,20 +99,23 @@ class DouYinVideo(object):
         # 使用 Chromium 浏览器启动一个浏览器实例
         browser_options = get_browser_launch_options(self.local_executable_path)
         browser = await playwright.chromium.launch(**browser_options)
-        # 创建一个浏览器上下文，使用指定的 cookie 文件
-        context = await browser.new_context(storage_state=f"{self.account_file}")
-        context = await set_init_script(context)
+        
+        # 使用账户上下文管理器获取storage_state
+        with storage_state_context(self.account_file) as storage_state_file:
+            # 创建一个浏览器上下文，使用指定的 cookie 文件
+            context = await browser.new_context(storage_state=storage_state_file)
+            context = await set_init_script(context)
 
-        # 创建一个新的页面
-        page = await context.new_page()
-        # 访问指定的 URL
-        await page.goto("https://creator.douyin.com/creator-micro/content/upload")
-        douyin_logger.info(f'[+]正在上传-------{self.title}.mp4')
-        # 等待页面跳转到指定的 URL，没进入，则自动等待到超时
-        douyin_logger.info(f'[-] 正在打开主页...')
-        await page.wait_for_url("https://creator.douyin.com/creator-micro/content/upload")
-        # 点击 "上传视频" 按钮
-        await page.locator("div[class^='container'] input").set_input_files(self.file_path)
+            # 创建一个新的页面
+            page = await context.new_page()
+            # 访问指定的 URL
+            await page.goto("https://creator.douyin.com/creator-micro/content/upload")
+            douyin_logger.info(f'[+]正在上传-------{self.title}.mp4')
+            # 等待页面跳转到指定的 URL，没进入，则自动等待到超时
+            douyin_logger.info(f'[-] 正在打开主页...')
+            await page.wait_for_url("https://creator.douyin.com/creator-micro/content/upload")
+            # 点击 "上传视频" 按钮
+            await page.locator("div[class^='container'] input").set_input_files(self.file_path)
 
         # 等待页面跳转到指定的 URL 2025.01.08修改在原有基础上兼容两种页面
         while True:

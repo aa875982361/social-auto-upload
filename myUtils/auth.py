@@ -1,6 +1,8 @@
 import asyncio
 import configparser
 import os
+import tempfile
+import json
 
 from playwright.async_api import async_playwright
 from xhs import XhsClient
@@ -11,6 +13,7 @@ from utils.log import tencent_logger, kuaishou_logger
 from pathlib import Path
 from uploader.xhs_uploader.main import sign_local
 from utils.browser_config import get_browser_options
+from utils.account_data_manager import AccountDataManager
 
 async def cookie_auth_douyin(account_file):
     async with async_playwright() as playwright:
@@ -101,8 +104,58 @@ async def cookie_auth_xhs(account_file):
             return True
 
 
+async def check_cookie_from_mysql(type, account_id):
+    """从MySQL检查cookie有效性"""
+    try:
+        # 从MySQL获取账户数据
+        storage_state = AccountDataManager.get_account_data(account_id)
+        if not storage_state:
+            print(f"[!] 账户 {account_id} 数据不存在或已过期")
+            return False
+        
+        # 创建临时文件用于验证
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+            json.dump(storage_state, temp_file, ensure_ascii=False, indent=2)
+            temp_file_path = temp_file.name
+        
+        try:
+            # 使用临时文件进行验证
+            result = await check_cookie(type, temp_file_path)
+            
+            if not result:
+                # 如果验证失败，标记账户为无效
+                AccountDataManager.mark_account_invalid(account_id)
+            
+            return result
+        finally:
+            # 清理临时文件
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+                
+    except Exception as e:
+        print(f"[!] 从MySQL验证cookie失败: {e}")
+        return False
+
 async def check_cookie(type, file_path):
     """检查cookie有效性，file_path可以是完整路径或相对路径"""
+    # 检查是否是MySQL存储的账户（以mysql://开头）
+    if isinstance(file_path, str) and file_path.startswith('mysql://'):
+        # 从filePath提取account_id（去掉mysql://前缀后查找对应的user_info记录）
+        mysql_id = file_path.replace('mysql://', '')
+        try:
+            from db.mysql_connection import mysql_connect
+            with mysql_connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT id FROM user_info WHERE filePath = ?", (file_path,))
+                result = cursor.fetchone()
+                if result:
+                    account_id = result[0]
+                    return await check_cookie_from_mysql(type, account_id)
+        except Exception as e:
+            print(f"[!] 查询MySQL账户ID失败: {e}")
+            return False
+    
+    # 传统文件方式验证
     # 如果是完整路径，直接使用；否则使用旧的cookiesFile目录
     if Path(file_path).is_absolute() or '/' in file_path or '\\' in file_path:
         full_path = Path(file_path)
