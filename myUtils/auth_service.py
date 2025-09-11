@@ -4,7 +4,6 @@
 """
 
 import hashlib
-import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from flask import current_app, request, jsonify
@@ -12,6 +11,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 import bcrypt
 from functools import wraps
 from conf import BASE_DIR
+from db.mysql_connection import mysql_connect
 
 
 class AuthService:
@@ -63,20 +63,19 @@ class AuthService:
         return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
     
     def get_db_connection(self):
-        """获取数据库连接"""
-        conn = sqlite3.connect(Path(BASE_DIR / "db" / "database.db"))
-        conn.row_factory = sqlite3.Row
-        return conn
+        """获取数据库连接（已废弃，使用mysql_connect代替）"""
+        # 这个方法保留是为了兼容性，但实际使用mysql_connect
+        return mysql_connect()
     
     def register_user(self, username, email, password, role='user'):
         """用户注册"""
         try:
-            with self.get_db_connection() as conn:
+            with mysql_connect() as conn:
                 cursor = conn.cursor()
                 
                 # 检查用户名和邮箱是否已存在
                 cursor.execute(
-                    "SELECT id FROM auth_users WHERE username = ? OR email = ?",
+                    "SELECT id FROM auth_users WHERE username = %s OR email = %s",
                     (username, email)
                 )
                 existing_user = cursor.fetchone()
@@ -93,7 +92,7 @@ class AuthService:
                 # 插入新用户
                 cursor.execute('''
                     INSERT INTO auth_users (username, email, password_hash, role)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s)
                 ''', (username, email, password_hash, role))
                 
                 user_id = cursor.lastrowid
@@ -114,14 +113,14 @@ class AuthService:
     def authenticate_user(self, username, password):
         """用户认证"""
         try:
-            with self.get_db_connection() as conn:
+            with mysql_connect() as conn:
                 cursor = conn.cursor()
                 
                 # 查找用户
                 cursor.execute('''
                     SELECT id, username, email, password_hash, role, is_active
                     FROM auth_users 
-                    WHERE (username = ? OR email = ?) AND is_active = 1
+                    WHERE (username = %s OR email = %s) AND is_active = 1
                 ''', (username, username))
                 
                 user = cursor.fetchone()
@@ -172,7 +171,7 @@ class AuthService:
     def _create_session(self, user_id, token):
         """创建用户会话记录"""
         try:
-            with self.get_db_connection() as conn:
+            with mysql_connect() as conn:
                 cursor = conn.cursor()
                 
                 # 计算token过期时间
@@ -181,7 +180,7 @@ class AuthService:
                 
                 cursor.execute('''
                     INSERT INTO user_sessions (user_id, token_hash, expires_at)
-                    VALUES (?, ?, ?)
+                    VALUES (%s, %s, %s)
                 ''', (user_id, token_hash, expires_at))
                 
                 conn.commit()
@@ -192,13 +191,13 @@ class AuthService:
     def get_user_by_id(self, user_id):
         """根据用户ID获取用户信息"""
         try:
-            with self.get_db_connection() as conn:
+            with mysql_connect() as conn:
                 cursor = conn.cursor()
                 
                 cursor.execute('''
                     SELECT id, username, email, role, is_active, created_at
                     FROM auth_users 
-                    WHERE id = ? AND is_active = 1
+                    WHERE id = %s AND is_active = 1
                 ''', (user_id,))
                 
                 user = cursor.fetchone()
@@ -214,14 +213,14 @@ class AuthService:
     def logout_user(self, token):
         """用户登出（使token失效）"""
         try:
-            with self.get_db_connection() as conn:
+            with mysql_connect() as conn:
                 cursor = conn.cursor()
                 
                 token_hash = hashlib.sha256(token.encode()).hexdigest()
                 
                 cursor.execute('''
                     DELETE FROM user_sessions 
-                    WHERE token_hash = ?
+                    WHERE token_hash = %s
                 ''', (token_hash,))
                 
                 conn.commit()
@@ -238,6 +237,29 @@ class AuthService:
             }
 
 
+def get_user_by_id_direct(user_id):
+    """直接通过数据库连接获取用户信息，避免创建新的AuthService实例"""
+    try:
+        with mysql_connect() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, username, email, role, is_active, created_at
+                FROM auth_users 
+                WHERE id = %s AND is_active = 1
+            ''', (user_id,))
+            
+            user = cursor.fetchone()
+            
+            if user:
+                return dict(user)
+            return None
+            
+    except Exception as e:
+        print(f"获取用户信息失败: {str(e)}")
+        return None
+
+
 def require_auth(roles=None):
     """权限装饰器，可指定需要的角色"""
     def decorator(f):
@@ -248,8 +270,8 @@ def require_auth(roles=None):
             claims = get_jwt()
             
             # 检查用户是否仍然有效
-            auth_service = AuthService()
-            user = auth_service.get_user_by_id(current_user_id)
+            # 直接使用数据库连接，避免创建新的AuthService实例
+            user = get_user_by_id_direct(current_user_id)
             
             if not user:
                 return jsonify({
@@ -312,8 +334,7 @@ def verify_token_from_params():
             }), 401
         
         # 验证用户是否存在
-        auth_service = AuthService()
-        user = auth_service.get_user_by_id(user_id)
+        user = get_user_by_id_direct(user_id)
         
         if not user:
             return False, None, jsonify({

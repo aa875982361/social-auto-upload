@@ -1,6 +1,32 @@
 version: '3.8'
 
 services:
+  # MySQL数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: sau-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_2024
+      MYSQL_DATABASE: social_auto_upload
+      MYSQL_USER: sau_user
+      MYSQL_PASSWORD: sau_password
+      MYSQL_ROOT_HOST: '%'
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/conf.d:/etc/mysql/conf.d
+    ports:
+      - "3306:3306"
+    networks:
+      - sau-network
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password_2024"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   # 后端服务
   backend:
     build:
@@ -12,6 +38,11 @@ services:
       - PYTHONUNBUFFERED=1
       - DOCKER_ENV=true
       - FLASK_ENV=production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=sau_user
+      - DB_PASSWORD=sau_password
+      - DB_NAME=social_auto_upload
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
@@ -22,6 +53,9 @@ services:
       - "5409:5409"
     networks:
       - sau-network
+    depends_on:
+      mysql:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5409/"]
       interval: 30s
@@ -39,7 +73,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - sau-network
     healthcheck:
@@ -71,6 +106,7 @@ networks:
     driver: bridge
 
 volumes:
+  mysql_data:
   data:
   logs:
   videoFile:

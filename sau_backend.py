@@ -1,6 +1,5 @@
 import asyncio
 import os
-import sqlite3
 import threading
 import time
 import uuid
@@ -14,6 +13,7 @@ from flask import Flask, request, jsonify, Response, render_template, send_from_
 from conf import BASE_DIR
 from myUtils.login import get_tencent_cookie, douyin_cookie_gen, get_ks_cookie, xiaohongshu_cookie_gen
 from myUtils.postVideo import post_video_tencent, post_video_DouYin, post_video_ks, post_video_xhs
+from db.mysql_connection import mysql_connect
 
 active_queues = {}
 app = Flask(__name__)
@@ -50,10 +50,10 @@ def get_user_account_dir(user_id):
 def verify_file_ownership(file_path, user_id):
     """验证文件是否属于指定用户"""
     try:
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with mysql_connect() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT COUNT(*) FROM file_records WHERE file_path = ? AND created_by = ?",
+                "SELECT COUNT(*) FROM file_records WHERE file_path = %s AND created_by = %s",
                 (file_path, user_id)
             )
             return cursor.fetchone()[0] > 0
@@ -64,10 +64,10 @@ def verify_file_ownership(file_path, user_id):
 def verify_account_ownership(account_id, user_id):
     """验证账号是否属于指定用户"""
     try:
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with mysql_connect() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT COUNT(*) FROM user_info WHERE id = ? AND created_by = ?",
+                "SELECT COUNT(*) FROM user_info WHERE id = %s AND created_by = %s",
                 (account_id, user_id)
             )
             return cursor.fetchone()[0] > 0
@@ -193,8 +193,8 @@ def get_profile():
 def get_all_users():
     """获取所有用户（仅管理员）"""
     try:
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
-            conn.row_factory = sqlite3.Row
+        with mysql_connect() as conn:
+            conn.row_factory = None  # MySQL连接已处理
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -247,11 +247,11 @@ def upload_file():
         file.save(filepath)
         
         # 记录文件信息到数据库
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with mysql_connect() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 INSERT INTO file_records (filename, filesize, file_path, created_by)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
             ''', (file.filename, round(float(os.path.getsize(filepath)) / (1024 * 1024), 2), final_filename, current_user_id))
             conn.commit()
             print(f"\u2705 用户{current_user_id}上传文件已记录")
@@ -277,11 +277,11 @@ def get_file():
 
     try:
         # 验证文件所有权
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with mysql_connect() as conn:
             cursor = conn.cursor()
             
             # 检查文件是否属于当前用户
-            cursor.execute("SELECT COUNT(*) FROM file_records WHERE file_path = ? AND created_by = ?", (filename, current_user_id))
+            cursor.execute("SELECT COUNT(*) FROM file_records WHERE file_path = %s AND created_by = %s", (filename, current_user_id))
             count = cursor.fetchone()[0]
             
             if count == 0:
@@ -352,11 +352,11 @@ def upload_save():
         # 保存文件
         file.save(filepath)
         
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with mysql_connect() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                                 INSERT INTO file_records (filename, filesize, file_path, created_by)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
                                 ''', (filename, round(float(os.path.getsize(filepath)) / (1024 * 1024),2), final_filename, current_user_id))
             conn.commit()
             print("✅ 上传文件已记录")
@@ -385,12 +385,12 @@ def get_all_files():
         current_user_id = int(get_jwt_identity())
         
         # 使用 with 自动管理数据库连接
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
-            conn.row_factory = sqlite3.Row  # 允许通过列名访问结果
+        with mysql_connect() as conn:
+            conn.row_factory = None  # MySQL连接已处理
             cursor = conn.cursor()
 
             # 只查询当前用户的文件记录
-            cursor.execute("SELECT * FROM file_records WHERE created_by = ? ORDER BY upload_time DESC", (current_user_id,))
+            cursor.execute("SELECT * FROM file_records WHERE created_by = %s ORDER BY upload_time DESC", (current_user_id,))
             rows = cursor.fetchall()
 
             # 将结果转为字典列表
@@ -421,14 +421,14 @@ def getValidAccounts():
         # 安全日志记录
         print(f"\n🔒 账号查询请求 - 用户ID: {current_user_id}")
         
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with mysql_connect() as conn:
             cursor = conn.cursor()
             
             # 严格的数据隔离查询 - 只返回当前用户创建的账号
             cursor.execute('''
                 SELECT id, type, filePath, userName, status, created_by 
                 FROM user_info 
-                WHERE created_by = ? AND created_by IS NOT NULL
+                WHERE created_by = %s AND created_by IS NOT NULL
                 ORDER BY id
             ''', (current_user_id,))
             
@@ -437,8 +437,8 @@ def getValidAccounts():
             # 二次验证：确保所有返回的账号都属于当前用户
             validated_rows = []
             for row in rows:
-                if row[5] == current_user_id:  # created_by 字段
-                    validated_rows.append(list(row))
+                if row['created_by'] == current_user_id:  # created_by 字段
+                    validated_rows.append(list(row.values()) if hasattr(row, 'values') else list(row))
                 else:
                     print(f"⚠️ 安全警告: 发现不属于用户{current_user_id}的账号: {row}")
             
@@ -474,12 +474,12 @@ def delete_file():
 
     try:
         # 获取数据库连接
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
-            conn.row_factory = sqlite3.Row
+        with mysql_connect() as conn:
+            conn.row_factory = None  # MySQL连接已处理
             cursor = conn.cursor()
 
             # 查询要删除的记录，确保文件属于当前用户
-            cursor.execute("SELECT * FROM file_records WHERE id = ? AND created_by = ?", (file_id, current_user_id))
+            cursor.execute("SELECT * FROM file_records WHERE id = %s AND created_by = %s", (file_id, current_user_id))
             record = cursor.fetchone()
 
             if not record:
@@ -492,7 +492,7 @@ def delete_file():
             record = dict(record)
 
             # 删除数据库记录
-            cursor.execute("DELETE FROM file_records WHERE id = ? AND created_by = ?", (file_id, current_user_id))
+            cursor.execute("DELETE FROM file_records WHERE id = %s AND created_by = %s", (file_id, current_user_id))
             conn.commit()
             
             # 同时删除物理文件
@@ -538,14 +538,14 @@ def delete_account():
 
         print(f"\n🗑️ 删除账号请求 - 用户ID: {current_user_id}, 账号ID: {account_id}")
 
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
-            conn.row_factory = sqlite3.Row
+        with mysql_connect() as conn:
+            conn.row_factory = None  # MySQL连接已处理
             cursor = conn.cursor()
 
             # 严格验证账号所有权
             cursor.execute('''
                 SELECT * FROM user_info 
-                WHERE id = ? AND created_by = ? AND created_by IS NOT NULL
+                WHERE id = %s AND created_by = %s AND created_by IS NOT NULL
             ''', (account_id, current_user_id))
             record = cursor.fetchone()
 
@@ -567,7 +567,7 @@ def delete_account():
                 }), 403
 
             # 删除数据库记录
-            cursor.execute("DELETE FROM user_info WHERE id = ? AND created_by = ?", (account_id, current_user_id))
+            cursor.execute("DELETE FROM user_info WHERE id = %s AND created_by = %s", (account_id, current_user_id))
             deleted_count = cursor.rowcount
             conn.commit()
             
@@ -660,14 +660,14 @@ def postVideo():
     
     # 验证账号权限：确保所有账号都属于当前用户
     try:
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with mysql_connect() as conn:
             cursor = conn.cursor()
             
             # 验证每个账号文件是否属于当前用户
             for account_file in account_list:
                 cursor.execute('''
                     SELECT COUNT(*) FROM user_info 
-                    WHERE filePath = ? AND created_by = ?
+                    WHERE filePath = %s AND created_by = %s
                 ''', (account_file, current_user_id))
                 
                 count = cursor.fetchone()[0]
@@ -742,14 +742,14 @@ def updateUserinfo():
         
         print(f"\n✏️ 更新账号请求 - 用户ID: {current_user_id}, 账号ID: {user_id}")
 
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
-            conn.row_factory = sqlite3.Row
+        with mysql_connect() as conn:
+            conn.row_factory = None  # MySQL连接已处理
             cursor = conn.cursor()
 
             # 严格验证账号所有权
             cursor.execute('''
                 SELECT * FROM user_info 
-                WHERE id = ? AND created_by = ? AND created_by IS NOT NULL
+                WHERE id = %s AND created_by = %s AND created_by IS NOT NULL
             ''', (user_id, current_user_id))
             record = cursor.fetchone()
             
@@ -773,8 +773,8 @@ def updateUserinfo():
             # 更新数据库记录
             cursor.execute('''
                 UPDATE user_info
-                SET type = ?, userName = ?
-                WHERE id = ? AND created_by = ?
+                SET type = %s, userName = %s
+                WHERE id = %s AND created_by = %s
             ''', (type_value, userName, user_id, current_user_id))
             
             updated_count = cursor.rowcount
@@ -833,14 +833,14 @@ def postVideoBatch():
         
         # 验证账号权限：确保所有账号都属于当前用户
         try:
-            with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+            with mysql_connect() as conn:
                 cursor = conn.cursor()
                 
                 # 验证每个账号文件是否属于当前用户
                 for account_file in account_list:
                     cursor.execute('''
                         SELECT COUNT(*) FROM user_info 
-                        WHERE filePath = ? AND created_by = ?
+                        WHERE filePath = %s AND created_by = %s
                     ''', (account_file, current_user_id))
                     
                     count = cursor.fetchone()[0]
