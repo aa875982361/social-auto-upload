@@ -70,4 +70,4 @@ RUN chmod +x /app/scripts/*.sh /app/scripts/*.py
 EXPOSE 5409
 
 # 启动命令 - 使用统一的启动脚本
-CMD ["/app/scripts/start_app.sh"]
+CMD ["/app/scripts/start.sh"]
