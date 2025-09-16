@@ -31,6 +31,9 @@ RUN apt-get update && apt-get install -y \
 
 # 复制requirements.txt并安装Python依赖
 COPY requirements.txt .
+# 升级pip以确保兼容性
+RUN pip install --upgrade pip
+# 安装依赖，使用更宽松的版本策略
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 安装Playwright浏览器
