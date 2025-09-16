@@ -51,6 +51,7 @@ Thumbs.db
 data/
 logs/
 videoFile/
+cookiesFile/
 *.db
 *.sqlite
 *.sqlite3
