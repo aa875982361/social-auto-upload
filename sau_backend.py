@@ -12,6 +12,7 @@ from flask import Flask, request, jsonify, Response, render_template, send_from_
 from conf import BASE_DIR
 from myUtils.login import get_tencent_cookie, douyin_cookie_gen, get_ks_cookie, xiaohongshu_cookie_gen
 from myUtils.postVideo import post_video_tencent, post_video_DouYin, post_video_ks, post_video_xhs
+from utils.download_manager import download_manager
 
 active_queues = {}
 app = Flask(__name__)
@@ -375,46 +376,124 @@ def login():
 
 @app.route('/postVideo', methods=['POST'])
 def postVideo():
-    # 获取JSON数据
-    data = request.get_json()
+    try:
+        # 获取JSON数据
+        data = request.get_json()
+        
+        # 参数验证
+        if not data:
+            return jsonify({
+                "code": 400,
+                "msg": "请求数据不能为空",
+                "data": None
+            }), 400
 
-    # 从JSON数据中提取fileList和accountList
-    file_list = data.get('fileList', [])
-    account_list = data.get('accountList', [])
-    type = data.get('type')
-    title = data.get('title')
-    tags = data.get('tags')
-    category = data.get('category')
-    enableTimer = data.get('enableTimer')
-    if category == 0:
-        category = None
+        # 从JSON数据中提取fileList和accountList
+        file_list = data.get('fileList', [])
+        account_list = data.get('accountList', [])
+        type = data.get('type')
+        title = data.get('title')
+        tags = data.get('tags')
+        category = data.get('category')
+        enableTimer = data.get('enableTimer')
+        
+        # 基本参数验证
+        if not file_list:
+            return jsonify({
+                "code": 400,
+                "msg": "文件列表不能为空",
+                "data": None
+            }), 400
+            
+        if not account_list:
+            return jsonify({
+                "code": 400,
+                "msg": "账号列表不能为空", 
+                "data": None
+            }), 400
+            
+        if not type or type not in [1, 2, 3, 4]:
+            return jsonify({
+                "code": 400,
+                "msg": "平台类型无效",
+                "data": None
+            }), 400
+        
+        if category == 0:
+            category = None
 
-    videos_per_day = data.get('videosPerDay')
-    daily_times = data.get('dailyTimes')
-    start_days = data.get('startDays')
-    # 打印获取到的数据（仅作为示例）
-    print("File List:", file_list)
-    print("Account List:", account_list)
-    match type:
-        case 1:
-            post_video_xhs(title, file_list, tags, account_list, category, enableTimer, videos_per_day, daily_times,
-                               start_days)
-        case 2:
-            post_video_tencent(title, file_list, tags, account_list, category, enableTimer, videos_per_day, daily_times,
-                               start_days)
-        case 3:
-            post_video_DouYin(title, file_list, tags, account_list, category, enableTimer, videos_per_day, daily_times,
-                      start_days)
-        case 4:
-            post_video_ks(title, file_list, tags, account_list, category, enableTimer, videos_per_day, daily_times,
-                      start_days)
-    # 返回响应给客户端
-    return jsonify(
-        {
-            "code": 200,
-            "msg": None,
+        videos_per_day = data.get('videosPerDay')
+        daily_times = data.get('dailyTimes')
+        start_days = data.get('startDays')
+        
+        # 打印获取到的数据（包含URL支持信息）
+        print("Original File List:", file_list)
+        print("Account List:", account_list)
+        online_count = len([f for f in file_list if f.startswith(('http://', 'https://'))])
+        local_count = len([f for f in file_list if not f.startswith(('http://', 'https://'))])
+        print(f"包含线上资源数量: {online_count}")
+        print(f"包含本地文件数量: {local_count}")
+        
+        # 提前处理文件下载，将所有线上资源下载到本地
+        print("开始处理文件下载...")
+        processed_file_list = download_manager.process_file_list(file_list)
+        
+        if not processed_file_list:
+            return jsonify({
+                "code": 400,
+                "msg": "没有有效的文件可以上传，所有文件处理失败",
+                "data": None
+            }), 400
+        
+        if len(processed_file_list) != len(file_list):
+            print(f"警告: 部分文件处理失败，原始文件数: {len(file_list)}, 处理成功: {len(processed_file_list)}")
+        
+        print(f"文件处理完成，最终文件列表: {processed_file_list}")
+        
+    except Exception as e:
+        print(f"参数解析或文件处理错误: {e}")
+        return jsonify({
+            "code": 500,
+            "msg": f"参数解析或文件处理错误: {str(e)}",
             "data": None
+        }), 500
+    
+    try:
+        # 执行视频上传，现在使用已处理的本地文件列表
+        match type:
+            case 1:
+                post_video_xhs(title, processed_file_list, tags, account_list, category, enableTimer, videos_per_day, daily_times,
+                                   start_days)
+            case 2:
+                post_video_tencent(title, processed_file_list, tags, account_list, category, enableTimer, videos_per_day, daily_times,
+                                   start_days)
+            case 3:
+                post_video_DouYin(title, processed_file_list, tags, account_list, category, enableTimer, videos_per_day, daily_times,
+                          start_days)
+            case 4:
+                post_video_ks(title, processed_file_list, tags, account_list, category, enableTimer, videos_per_day, daily_times,
+                          start_days)
+                          
+        # 返回成功响应
+        return jsonify({
+            "code": 200,
+            "msg": "视频上传任务已启动，线上资源已下载完成",
+            "data": {
+                "original_files": len(file_list),
+                "processed_files": len(processed_file_list),
+                "online_resources_downloaded": online_count,
+                "local_files": local_count,
+                "download_success_rate": f"{len(processed_file_list)}/{len(file_list)}"
+            }
         }), 200
+        
+    except Exception as e:
+        print(f"视频上传处理错误: {e}")
+        return jsonify({
+            "code": 500,
+            "msg": f"视频上传处理失败: {str(e)}",
+            "data": None
+        }), 500
 
 
 @app.route('/updateUserinfo', methods=['POST'])
