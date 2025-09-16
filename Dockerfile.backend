@@ -9,9 +9,17 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV DOCKER_ENV=true
 
-# # 设置pip镜像源为阿里云
-# RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
-#     pip config set global.trusted-host mirrors.aliyun.com
+# 设置国内镜像源
+RUN echo "deb https://mirrors.aliyun.com/debian/ bookworm main" > /etc/apt/sources.list && \
+    echo "deb-src https://mirrors.aliyun.com/debian/ bookworm main" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.aliyun.com/debian-security/ bookworm-security main" >> /etc/apt/sources.list && \
+    echo "deb-src https://mirrors.aliyun.com/debian-security/ bookworm-security main" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.aliyun.com/debian/ bookworm-updates main" >> /etc/apt/sources.list && \
+    echo "deb-src https://mirrors.aliyun.com/debian/ bookworm-updates main" >> /etc/apt/sources.list
+
+# 设置pip镜像源为阿里云
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    pip config set global.trusted-host mirrors.aliyun.com
 
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
