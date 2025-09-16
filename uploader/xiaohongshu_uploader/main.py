@@ -166,7 +166,6 @@ class XiaoHongShuVideo(object):
         xiaohongshu_logger.info(f'  [-] 正在填充标题和话题...')
         
         # 等待页面完全加载
-        await page.wait_for_load_state("networkidle", timeout=30000)
         title_container = page.locator('div.plugin.title-container').locator('input.d-text')
         if await title_container.count():
             await title_container.fill(self.title[:30])

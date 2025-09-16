@@ -1,6 +1,7 @@
 import asyncio
 import configparser
 import os
+from pathlib import Path
 
 from playwright.async_api import async_playwright
 from xhs import XhsClient
@@ -8,7 +9,6 @@ from xhs import XhsClient
 from conf import BASE_DIR
 from utils.base_social_media import set_init_script
 from utils.log import tencent_logger, kuaishou_logger
-from pathlib import Path
 from uploader.xhs_uploader.main import sign_local
 from utils.browser_config import get_browser_options
 
@@ -102,19 +102,25 @@ async def cookie_auth_xhs(account_file):
 
 
 async def check_cookie(type,file_path):
+    # 检查文件是否存在
+    cookie_file_path = Path(BASE_DIR / "cookiesFile" / file_path)
+    if not cookie_file_path.exists():
+        print(f"[-] Cookie文件不存在: {cookie_file_path}")
+        return False
+    
     match type:
         # 小红书
         case 1:
-            return await cookie_auth_xhs(Path(BASE_DIR / "cookiesFile" / file_path))
+            return await cookie_auth_xhs(cookie_file_path)
         # 视频号
         case 2:
-            return await cookie_auth_tencent(Path(BASE_DIR / "cookiesFile" / file_path))
+            return await cookie_auth_tencent(cookie_file_path)
         # 抖音
         case 3:
-            return await cookie_auth_douyin(Path(BASE_DIR / "cookiesFile" / file_path))
+            return await cookie_auth_douyin(cookie_file_path)
         # 快手
         case 4:
-            return await cookie_auth_ks(Path(BASE_DIR / "cookiesFile" / file_path))
+            return await cookie_auth_ks(cookie_file_path)
         case _:
             return False
 
