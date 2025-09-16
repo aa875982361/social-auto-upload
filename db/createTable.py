@@ -3,6 +3,7 @@ import json
 import os
 
 # 数据库文件路径（如果不存在会自动创建）
+# 注意：这个脚本现在主要用于独立创建数据库，实际运行时数据库在 data/db/database.db
 db_file = './database.db'
 
 # 如果数据库已存在，则删除旧的表（可选）

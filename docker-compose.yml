@@ -18,6 +18,7 @@ services:
       - ./videoFile:/app/videoFile
       - ./media:/app/media
       - ./ssl:/app/ssl
+      # 注意：不再挂载 ./db，数据库现在存储在 ./data/db 中
     ports:
       - "5409:5409"
     networks:

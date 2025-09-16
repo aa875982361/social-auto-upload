@@ -16,6 +16,48 @@ from myUtils.postVideo import post_video_tencent, post_video_DouYin, post_video_
 active_queues = {}
 app = Flask(__name__)
 
+def init_database():
+    """初始化数据库，仅在数据库不存在时创建表"""
+    db_path = Path(BASE_DIR / "data" / "db" / "database.db")
+    
+    # 确保目录存在
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # 检查数据库是否存在或为空
+    db_exists = db_path.exists() and db_path.stat().st_size > 0
+    
+    if not db_exists:
+        print("🔄 初始化数据库...")
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 创建账号记录表
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_info (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type INTEGER NOT NULL,
+                filePath TEXT NOT NULL,
+                userName TEXT NOT NULL,
+                status INTEGER DEFAULT 0
+            )
+            ''')
+            
+            # 创建文件记录表
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS file_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT NOT NULL,
+                filesize REAL,
+                upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                file_path TEXT
+            )
+            ''')
+            
+            conn.commit()
+            print("✅ 数据库表创建成功")
+    else:
+        print("✅ 数据库已存在，跳过初始化")
+
 #允许所有来源跨域访问
 CORS(app)
 
@@ -120,7 +162,7 @@ def upload_save():
         # 保存文件
         file.save(filepath)
 
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
             cursor = conn.cursor()
             cursor.execute('''
                                 INSERT INTO file_records (filename, filesize, file_path)
@@ -149,7 +191,7 @@ def upload_save():
 def get_all_files():
     try:
         # 使用 with 自动管理数据库连接
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
             conn.row_factory = sqlite3.Row  # 允许通过列名访问结果
             cursor = conn.cursor()
 
@@ -175,7 +217,7 @@ def get_all_files():
 
 @app.route("/getValidAccounts",methods=['GET'])
 async def getValidAccounts():
-    with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+    with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
         cursor = conn.cursor()
         cursor.execute('''
         SELECT * FROM user_info''')
@@ -217,7 +259,7 @@ def delete_file():
 
     try:
         # 获取数据库连接
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
@@ -260,7 +302,7 @@ def delete_account():
 
     try:
         # 获取数据库连接
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
@@ -375,7 +417,7 @@ def updateUserinfo():
     userName = data.get('userName')
     try:
         # 获取数据库连接
-        with sqlite3.connect(Path(BASE_DIR / "db" / "database.db")) as conn:
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
@@ -480,4 +522,6 @@ def sse_stream(status_queue):
             time.sleep(0.1)
 
 if __name__ == '__main__':
+    # 初始化数据库
+    init_database()
     app.run(host='0.0.0.0' ,port=5409)
