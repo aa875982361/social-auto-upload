@@ -19,7 +19,7 @@
               />
               <div class="action-buttons">
                 <el-button type="primary" @click="handleAddAccount">添加账号</el-button>
-                <el-button type="info" @click="fetchAccounts" :loading="false">
+                <el-button type="info" @click="handleRefresh" :loading="false">
                   <el-icon :class="{ 'is-loading': appStore.isAccountRefreshing }"><Refresh /></el-icon>
                   <span v-if="appStore.isAccountRefreshing">刷新中</span>
                 </el-button>
@@ -82,7 +82,7 @@
               />
               <div class="action-buttons">
                 <el-button type="primary" @click="handleAddAccount">添加账号</el-button>
-                <el-button type="info" @click="fetchAccounts" :loading="false">
+                <el-button type="info" @click="handleRefresh" :loading="false">
                   <el-icon :class="{ 'is-loading': appStore.isAccountRefreshing }"><Refresh /></el-icon>
                   <span v-if="appStore.isAccountRefreshing">刷新中</span>
                 </el-button>
@@ -145,7 +145,7 @@
               />
               <div class="action-buttons">
                 <el-button type="primary" @click="handleAddAccount">添加账号</el-button>
-                <el-button type="info" @click="fetchAccounts" :loading="false">
+                <el-button type="info" @click="handleRefresh" :loading="false">
                   <el-icon :class="{ 'is-loading': appStore.isAccountRefreshing }"><Refresh /></el-icon>
                   <span v-if="appStore.isAccountRefreshing">刷新中</span>
                 </el-button>
@@ -208,7 +208,7 @@
               />
               <div class="action-buttons">
                 <el-button type="primary" @click="handleAddAccount">添加账号</el-button>
-                <el-button type="info" @click="fetchAccounts" :loading="false">
+                <el-button type="info" @click="handleRefresh" :loading="false">
                   <el-icon :class="{ 'is-loading': appStore.isAccountRefreshing }"><Refresh /></el-icon>
                   <span v-if="appStore.isAccountRefreshing">刷新中</span>
                 </el-button>
@@ -271,7 +271,7 @@
               />
               <div class="action-buttons">
                 <el-button type="primary" @click="handleAddAccount">添加账号</el-button>
-                <el-button type="info" @click="fetchAccounts" :loading="false">
+                <el-button type="info" @click="handleRefresh" :loading="false">
                   <el-icon :class="{ 'is-loading': appStore.isAccountRefreshing }"><Refresh /></el-icon>
                   <span v-if="appStore.isAccountRefreshing">刷新中</span>
                 </el-button>
@@ -411,16 +411,18 @@ const activeTab = ref('all')
 const searchKeyword = ref('')
 
 // 获取账号数据
-const fetchAccounts = async () => {
+const fetchAccounts = async (keyword = '') => {
   if (appStore.isAccountRefreshing) return
   
   appStore.setAccountRefreshing(true)
   
   try {
-    const res = await accountApi.getValidAccounts()
+    const res = await accountApi.getValidAccounts(keyword)
     if (res.code === 200 && res.data) {
       accountStore.setAccounts(res.data)
-      ElMessage.success('账号数据获取成功')
+      if (!keyword) {
+        ElMessage.success('账号数据获取成功')
+      }
       // 标记为已访问
       if (appStore.isFirstTimeAccountManagement) {
         appStore.setAccountManagementVisited()
@@ -455,12 +457,9 @@ const getPlatformTagType = (platform) => {
   return typeMap[platform] || 'info'
 }
 
-// 过滤后的账号列表
+// 过滤后的账号列表（现在直接使用store中的账号数据，因为搜索在后端处理）
 const filteredAccounts = computed(() => {
-  if (!searchKeyword.value) return accountStore.accounts
-  return accountStore.accounts.filter(account => 
-    account.name.includes(searchKeyword.value)
-  )
+  return accountStore.accounts
 })
 
 // 按平台过滤的账号列表
@@ -480,9 +479,28 @@ const filteredXiaohongshuAccounts = computed(() => {
   return filteredAccounts.value.filter(account => account.platform === '小红书')
 })
 
+// 搜索防抖定时器
+let searchTimer = null
+
 // 搜索处理
 const handleSearch = () => {
-  // 搜索逻辑已通过计算属性实现
+  // 清除之前的定时器
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  
+  // 设置新的定时器，300ms后执行搜索
+  searchTimer = setTimeout(() => {
+    fetchAccounts(searchKeyword.value)
+  }, 300)
+}
+
+// 刷新处理
+const handleRefresh = () => {
+  // 清除搜索关键词
+  searchKeyword.value = ''
+  // 获取所有账号数据
+  fetchAccounts()
 }
 
 // 对话框相关

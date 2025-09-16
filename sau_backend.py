@@ -217,10 +217,21 @@ def get_all_files():
 
 @app.route("/getValidAccounts",methods=['GET'])
 async def getValidAccounts():
+    # 获取搜索关键词参数
+    search_keyword = request.args.get('search', '').strip()
+    
     with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
         cursor = conn.cursor()
-        cursor.execute('''
-        SELECT * FROM user_info''')
+        
+        # 根据是否有搜索关键词执行不同的查询
+        if search_keyword:
+            cursor.execute('''
+            SELECT * FROM user_info 
+            WHERE userName LIKE ?''', (f'%{search_keyword}%',))
+        else:
+            cursor.execute('''
+            SELECT * FROM user_info''')
+        
         rows = cursor.fetchall()
         rows_list = [list(row) for row in rows]
         print("\n📋 当前数据表内容：")
