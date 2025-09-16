@@ -4,18 +4,18 @@ import { http } from '@/utils/request'
 export const materialApi = {
   // 获取所有素材
   getAllMaterials: () => {
-    return http.get('/getFiles')
+    return http.get('/api/getFiles')
   },
   
   // 上传素材
   uploadMaterial: (formData) => {
     // 使用http.upload方法，它已经配置了正确的Content-Type
-    return http.upload('/uploadSave', formData)
+    return http.upload('/api/uploadSave', formData)
   },
   
   // 删除素材
   deleteMaterial: (id) => {
-    return http.get(`/deleteFile?id=${id}`)
+    return http.get(`/api/deleteFile?id=${id}`)
   },
   
   // 下载素材
@@ -25,6 +25,6 @@ export const materialApi = {
   
   // 获取素材预览URL
   getMaterialPreviewUrl: (filename) => {
-    return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5409'}/getFile?filename=${filename}`
+    return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5409'}/api/getFile?filename=${filename}`
   }
 }

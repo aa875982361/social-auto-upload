@@ -751,7 +751,7 @@ const confirmPublish = async (tab) => {
     }
     
     // 调用后端发布API
-    fetch(`${apiBaseUrl}/postVideo`, {
+    fetch(`${apiBaseUrl}/api/postVideo`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

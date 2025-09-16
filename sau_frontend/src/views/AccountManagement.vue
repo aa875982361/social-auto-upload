@@ -619,7 +619,7 @@ const connectSSE = (platform, name) => {
   
   // 创建SSE连接
   const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5409'
-  const url = `${baseUrl}/login?type=${type}&id=${encodeURIComponent(name)}`
+  const url = `${baseUrl}/api/login?type=${type}&id=${encodeURIComponent(name)}`
   
   eventSource = new EventSource(url)
   

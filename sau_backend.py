@@ -83,7 +83,7 @@ def favicon(filename):
 def hello_world():  # put application's code here
     return render_template('index.html')
 
-@app.route('/upload', methods=['POST'])
+@app.route('/api/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
         return jsonify({
@@ -108,7 +108,7 @@ def upload_file():
     except Exception as e:
         return jsonify({"code":200,"msg": str(e),"data":None}), 500
 
-@app.route('/getFile', methods=['GET'])
+@app.route('/api/getFile', methods=['GET'])
 def get_file():
     # 获取 filename 参数
     filename = request.args.get('filename')
@@ -127,7 +127,7 @@ def get_file():
     return send_from_directory(file_path,filename)
 
 
-@app.route('/uploadSave', methods=['POST'])
+@app.route('/api/uploadSave', methods=['POST'])
 def upload_save():
     if 'file' not in request.files:
         return jsonify({
@@ -188,7 +188,7 @@ def upload_save():
             "data": None
         }), 500
 
-@app.route('/getFiles', methods=['GET'])
+@app.route('/api/getFiles', methods=['GET'])
 def get_all_files():
     try:
         # 使用 with 自动管理数据库连接
@@ -216,7 +216,7 @@ def get_all_files():
         }), 500
 
 
-@app.route("/getValidAccounts",methods=['GET'])
+@app.route("/api/getValidAccounts",methods=['GET'])
 async def getValidAccounts():
     # 获取搜索关键词参数
     search_keyword = request.args.get('search', '').strip()
@@ -258,7 +258,7 @@ async def getValidAccounts():
                             "data": rows_list
                         }),200
 
-@app.route('/deleteFile', methods=['GET'])
+@app.route('/api/deleteFile', methods=['GET'])
 def delete_file():
     file_id = request.args.get('id')
 
@@ -308,7 +308,7 @@ def delete_file():
             "data": None
         }), 500
 
-@app.route('/deleteAccount', methods=['GET'])
+@app.route('/api/deleteAccount', methods=['GET'])
 def delete_account():
     account_id = int(request.args.get('id'))
 
@@ -350,7 +350,7 @@ def delete_account():
 
 
 # SSE 登录接口
-@app.route('/login')
+@app.route('/api/login')
 def login():
     # 1 小红书 2 视频号 3 抖音 4 快手
     type = request.args.get('type')
@@ -374,7 +374,7 @@ def login():
     response.headers['Connection'] = 'keep-alive'
     return response
 
-@app.route('/postVideo', methods=['POST'])
+@app.route('/api/postVideo', methods=['POST'])
 def postVideo():
     try:
         # 获取JSON数据
@@ -496,7 +496,7 @@ def postVideo():
         }), 500
 
 
-@app.route('/updateUserinfo', methods=['POST'])
+@app.route('/api/updateUserinfo', methods=['POST'])
 def updateUserinfo():
     # 获取JSON数据
     data = request.get_json()
@@ -533,7 +533,7 @@ def updateUserinfo():
             "data": None
         }), 500
 
-@app.route('/postVideoBatch', methods=['POST'])
+@app.route('/api/postVideoBatch', methods=['POST'])
 def postVideoBatch():
     data_list = request.get_json()
 
