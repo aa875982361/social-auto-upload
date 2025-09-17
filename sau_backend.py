@@ -8,11 +8,16 @@ from pathlib import Path
 from queue import Queue
 from flask_cors import CORS
 from myUtils.auth import check_cookie
+from myUtils.jwt_auth import jwt_auth, token_required, optional_token
 from flask import Flask, request, jsonify, Response, render_template, send_from_directory
 from conf import BASE_DIR
 from myUtils.login import get_tencent_cookie, douyin_cookie_gen, get_ks_cookie, xiaohongshu_cookie_gen
 from myUtils.postVideo import post_video_tencent, post_video_DouYin, post_video_ks, post_video_xhs
 from utils.download_manager import download_manager
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 active_queues = {}
 app = Flask(__name__)
@@ -83,7 +88,71 @@ def favicon(filename):
 def hello_world():  # put application's code here
     return render_template('index.html')
 
+# 登录接口
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    """用户登录接口"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'code': 400,
+                'msg': '请求数据不能为空',
+                'data': None
+            }), 400
+        
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not username or not password:
+            return jsonify({
+                'code': 400,
+                'msg': '用户名和密码不能为空',
+                'data': None
+            }), 400
+        
+        # 验证用户名和密码
+        if jwt_auth.verify_credentials(username, password):
+            # 生成token
+            token = jwt_auth.generate_token(username)
+            return jsonify({
+                'code': 200,
+                'msg': '登录成功',
+                'data': {
+                    'token': token,
+                    'username': username,
+                    'expire_hours': jwt_auth.token_expire_hours
+                }
+            }), 200
+        else:
+            return jsonify({
+                'code': 401,
+                'msg': '用户名或密码错误',
+                'data': None
+            }), 401
+            
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'msg': f'登录失败: {str(e)}',
+            'data': None
+        }), 500
+
+# 验证token接口
+@app.route('/api/auth/verify', methods=['GET'])
+@token_required
+def verify_token():
+    """验证token是否有效"""
+    return jsonify({
+        'code': 200,
+        'msg': 'Token有效',
+        'data': {
+            'username': request.current_user
+        }
+    }), 200
+
 @app.route('/api/upload', methods=['POST'])
+@token_required
 def upload_file():
     if 'file' not in request.files:
         return jsonify({
@@ -109,6 +178,7 @@ def upload_file():
         return jsonify({"code":200,"msg": str(e),"data":None}), 500
 
 @app.route('/api/getFile', methods=['GET'])
+@token_required
 def get_file():
     # 获取 filename 参数
     filename = request.args.get('filename')
@@ -128,6 +198,7 @@ def get_file():
 
 
 @app.route('/api/uploadSave', methods=['POST'])
+@token_required
 def upload_save():
     if 'file' not in request.files:
         return jsonify({
@@ -189,6 +260,7 @@ def upload_save():
         }), 500
 
 @app.route('/api/getFiles', methods=['GET'])
+@token_required
 def get_all_files():
     try:
         # 使用 with 自动管理数据库连接
@@ -217,6 +289,7 @@ def get_all_files():
 
 
 @app.route("/api/getValidAccounts",methods=['GET'])
+@token_required
 async def getValidAccounts():
     # 获取搜索关键词参数
     search_keyword = request.args.get('search', '').strip()
@@ -259,6 +332,7 @@ async def getValidAccounts():
                         }),200
 
 @app.route('/api/deleteFile', methods=['GET'])
+@token_required
 def delete_file():
     file_id = request.args.get('id')
 
@@ -309,6 +383,7 @@ def delete_file():
         }), 500
 
 @app.route('/api/deleteAccount', methods=['GET'])
+@token_required
 def delete_account():
     account_id = int(request.args.get('id'))
 
@@ -349,9 +424,10 @@ def delete_account():
         }), 500
 
 
-# SSE 登录接口
-@app.route('/api/login')
-def login():
+# SSE 登录接口 (与账号登录不同，这是社交媒体账号登录)
+@app.route('/api/account/login')
+@token_required
+def account_login():
     # 1 小红书 2 视频号 3 抖音 4 快手
     type = request.args.get('type')
     # 账号名
@@ -375,6 +451,7 @@ def login():
     return response
 
 @app.route('/api/postVideo', methods=['POST'])
+@token_required
 def postVideo():
     try:
         # 获取JSON数据
@@ -497,6 +574,7 @@ def postVideo():
 
 
 @app.route('/api/updateUserinfo', methods=['POST'])
+@token_required
 def updateUserinfo():
     # 获取JSON数据
     data = request.get_json()
@@ -534,6 +612,7 @@ def updateUserinfo():
         }), 500
 
 @app.route('/api/postVideoBatch', methods=['POST'])
+@token_required
 def postVideoBatch():
     data_list = request.get_json()
 
