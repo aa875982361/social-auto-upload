@@ -119,3 +119,55 @@ body {
 .pr-4 { padding-right: $spacing-lg; }
 .pb-4 { padding-bottom: $spacing-lg; }
 .pl-4 { padding-left: $spacing-lg; }
+
+// 响应式工具类
+.hidden-xs { @media (max-width: $breakpoint-xs) { display: none !important; } }
+.hidden-sm { @media (max-width: $breakpoint-sm) { display: none !important; } }
+.hidden-md { @media (max-width: $breakpoint-md) { display: none !important; } }
+.hidden-lg { @media (max-width: $breakpoint-lg) { display: none !important; } }
+
+.visible-xs { @media (min-width: $breakpoint-xs + 1px) { display: none !important; } }
+.visible-sm { @media (min-width: $breakpoint-sm + 1px) { display: none !important; } }
+.visible-md { @media (min-width: $breakpoint-md + 1px) { display: none !important; } }
+.visible-lg { @media (min-width: $breakpoint-lg + 1px) { display: none !important; } }
+
+// 移动端专用工具类
+.mobile-only { 
+  display: none;
+  @media (max-width: $breakpoint-sm) { 
+    display: block; 
+  } 
+}
+
+.desktop-only { 
+  display: block;
+  @media (max-width: $breakpoint-sm) { 
+    display: none; 
+  } 
+}
+
+// 移动端文本大小
+.text-mobile-sm { 
+  @media (max-width: $breakpoint-sm) { 
+    font-size: $font-size-small; 
+  } 
+}
+
+.text-mobile-xs { 
+  @media (max-width: $breakpoint-sm) { 
+    font-size: $font-size-extra-small; 
+  } 
+}
+
+// 移动端间距
+.mobile-p-2 { 
+  @media (max-width: $breakpoint-sm) { 
+    padding: $spacing-sm; 
+  } 
+}
+
+.mobile-m-2 { 
+  @media (max-width: $breakpoint-sm) { 
+    margin: $spacing-sm; 
+  } 
+}

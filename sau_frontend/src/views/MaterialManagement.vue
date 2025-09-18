@@ -24,7 +24,8 @@
       </div>
       
       <div v-if="filteredMaterials.length > 0" class="material-list">
-        <el-table :data="filteredMaterials" style="width: 100%">
+        <!-- 桌面端表格 -->
+        <el-table :data="filteredMaterials" style="width: 100%" class="desktop-table">
           <el-table-column prop="filename" label="文件名" width="300" />
           <el-table-column prop="filesize" label="文件大小" width="120">
             <template #default="scope">
@@ -39,6 +40,27 @@
             </template>
           </el-table-column>
         </el-table>
+        
+        <!-- 移动端卡片列表 -->
+        <div class="mobile-material-list">
+          <div 
+            v-for="material in filteredMaterials" 
+            :key="material.id" 
+            class="material-card"
+          >
+            <div class="material-info">
+              <div class="material-name">{{ material.filename }}</div>
+              <div class="material-details">
+                <span class="file-size">{{ material.filesize }} MB</span>
+                <span class="upload-time">{{ material.upload_time }}</span>
+              </div>
+            </div>
+            <div class="material-actions">
+              <el-button size="small" @click="handlePreview(material)">预览</el-button>
+              <el-button size="small" type="danger" @click="handleDelete(material)">删除</el-button>
+            </div>
+          </div>
+        </div>
       </div>
       
       <div v-else class="empty-data">
@@ -354,6 +376,11 @@ onMounted(() => {
       font-weight: 500;
       color: $text-primary;
       margin: 0;
+      
+      @media (max-width: $breakpoint-sm) {
+        font-size: 20px;
+        text-align: center;
+      }
     }
   }
   
@@ -363,19 +390,40 @@ onMounted(() => {
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     padding: 20px;
     
+    @media (max-width: $breakpoint-sm) {
+      padding: 12px;
+      margin: 0 -12px;
+      border-radius: 0;
+    }
+    
     .material-search {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
       
+      @media (max-width: $breakpoint-sm) {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+      }
+      
       .el-input {
         width: 300px;
+        
+        @media (max-width: $breakpoint-sm) {
+          width: 100%;
+        }
       }
       
       .action-buttons {
         display: flex;
         gap: 10px;
+        
+        @media (max-width: $breakpoint-sm) {
+          justify-content: center;
+          flex-wrap: wrap;
+        }
         
         .is-loading {
           animation: rotate 1s linear infinite;
@@ -385,10 +433,74 @@ onMounted(() => {
     
     .material-list {
       margin-top: 20px;
+      
+      @media (max-width: $breakpoint-sm) {
+        margin-top: 12px;
+      }
+      
+      .desktop-table {
+        @media (max-width: $breakpoint-sm) {
+          display: none;
+        }
+      }
+      
+      .mobile-material-list {
+        display: none;
+        
+        @media (max-width: $breakpoint-sm) {
+          display: block;
+        }
+        
+        .material-card {
+          background-color: #f8f9fa;
+          border: 1px solid #e9ecef;
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 12px;
+          
+          .material-info {
+            margin-bottom: 12px;
+            
+            .material-name {
+              font-weight: 500;
+              color: $text-primary;
+              margin-bottom: 6px;
+              word-break: break-all;
+              font-size: 14px;
+            }
+            
+            .material-details {
+              display: flex;
+              justify-content: space-between;
+              font-size: 12px;
+              color: $text-secondary;
+              
+              .file-size {
+                color: $primary-color;
+              }
+            }
+          }
+          
+          .material-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            
+            .el-button {
+              font-size: 12px;
+              padding: 4px 8px;
+            }
+          }
+        }
+      }
     }
     
     .empty-data {
       padding: 40px 0;
+      
+      @media (max-width: $breakpoint-sm) {
+        padding: 20px 0;
+      }
     }
   }
   
@@ -403,15 +515,27 @@ onMounted(() => {
     flex-direction: column;
     padding: 0 20px;
     
+    @media (max-width: $breakpoint-sm) {
+      padding: 0 12px;
+    }
+    
     .file-info {
       text-align: center;
       margin-top: 20px;
+      
+      @media (max-width: $breakpoint-sm) {
+        margin-top: 12px;
+      }
     }
   }
 }
 
 .upload-form {
   padding: 0 20px;
+  
+  @media (max-width: $breakpoint-sm) {
+    padding: 0 12px;
+  }
   
   .form-tip {
     font-size: 12px;
@@ -428,21 +552,65 @@ onMounted(() => {
   padding: 0 20px;
   display: flex;
   justify-content: flex-end;
+  
+  @media (max-width: $breakpoint-sm) {
+    padding: 0 12px;
+    flex-direction: column;
+    gap: 8px;
+    
+    .el-button {
+      width: 100%;
+    }
+  }
 }
 
 /* 覆盖Element Plus对话框样式 */
 :deep(.el-dialog__body) {
   padding: 20px 0;
+  
+  @media (max-width: $breakpoint-sm) {
+    padding: 12px 0;
+  }
 }
 
 :deep(.el-dialog__header) {
   padding-left: 20px;
   padding-right: 20px;
   margin-right: 0;
+  
+  @media (max-width: $breakpoint-sm) {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
 }
 
 :deep(.el-dialog__footer) {
   padding-top: 10px;
   padding-bottom: 15px;
+  
+  @media (max-width: $breakpoint-sm) {
+    padding-top: 8px;
+    padding-bottom: 12px;
+  }
+}
+
+/* 移动端对话框优化 */
+@media (max-width: $breakpoint-sm) {
+  :deep(.el-dialog) {
+    width: 95% !important;
+    margin: 5vh auto !important;
+  }
+  
+  :deep(.el-dialog__wrapper) {
+    padding: 0 12px;
+  }
+  
+  :deep(.el-upload-dragger) {
+    height: 120px !important;
+  }
+  
+  :deep(.el-upload__text) {
+    font-size: 12px;
+  }
 }
 </style>

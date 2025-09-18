@@ -26,8 +26,9 @@
               </div>
             </div>
             
+            <!-- 桌面端表格 -->
             <div v-if="filteredAccounts.length > 0" class="account-list">
-              <el-table :data="filteredAccounts" style="width: 100%">
+              <el-table :data="filteredAccounts" style="width: 100%" class="desktop-table">
                 <el-table-column label="头像" width="80">
                   <template #default="scope">
                     <el-avatar :src="scope.row.avatar" :size="40" />
@@ -61,6 +62,42 @@
                   </template>
                 </el-table-column>
               </el-table>
+              
+              <!-- 移动端卡片列表 -->
+              <div class="mobile-account-list">
+                <div 
+                  v-for="account in filteredAccounts" 
+                  :key="account.id" 
+                  class="mobile-account-card"
+                >
+                  <div class="account-header">
+                    <el-avatar :src="account.avatar" :size="40" />
+                    <div class="account-info">
+                      <h3 class="account-name">{{ account.name }}</h3>
+                      <div class="account-tags">
+                        <el-tag
+                          :type="getPlatformTagType(account.platform)"
+                          effect="plain"
+                          size="small"
+                        >
+                          {{ account.platform }}
+                        </el-tag>
+                        <el-tag
+                          :type="account.status === '正常' ? 'success' : 'danger'"
+                          effect="plain"
+                          size="small"
+                        >
+                          {{ account.status }}
+                        </el-tag>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="account-actions">
+                    <el-button size="small" @click="handleEdit(account)">编辑</el-button>
+                    <el-button size="small" type="danger" @click="handleDelete(account)">删除</el-button>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div v-else class="empty-data">
@@ -796,6 +833,53 @@ onBeforeUnmount(() => {
     
     .account-list {
       margin-bottom: 20px;
+      
+      // 桌面端表格
+      .desktop-table {
+        display: block;
+      }
+      
+      // 移动端账号卡片列表
+      .mobile-account-list {
+        display: none;
+        
+        .mobile-account-card {
+          background: white;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 12px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          
+          .account-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            
+            .account-info {
+              margin-left: 12px;
+              flex: 1;
+              
+              .account-name {
+                font-size: 16px;
+                font-weight: 500;
+                color: $text-primary;
+                margin: 0 0 8px 0;
+              }
+              
+              .account-tags {
+                display: flex;
+                gap: 8px;
+              }
+            }
+          }
+          
+          .account-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+          }
+        }
+      }
     }
     
     .empty-data {
@@ -854,6 +938,157 @@ onBeforeUnmount(() => {
     
     .error-wrapper .el-icon {
       color: #f56c6c;
+    }
+  }
+}
+
+// 移动端响应式样式
+@media (max-width: 768px) {
+  .account-management {
+    .page-header {
+      margin-bottom: 16px;
+      
+      h1 {
+        font-size: 20px;
+      }
+    }
+    
+    .account-tabs {
+      .account-tabs-nav {
+        padding: 16px;
+      }
+    }
+    
+    .account-list-container {
+      .account-search {
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
+        
+        .el-input {
+          width: 100%;
+        }
+        
+        .action-buttons {
+          justify-content: flex-end;
+        }
+      }
+      
+      .account-list {
+        margin-bottom: 16px;
+        
+        // 隐藏桌面端表格，显示移动端卡片
+        .desktop-table {
+          display: none;
+        }
+        
+        .mobile-account-list {
+          display: block;
+        }
+      }
+    }
+    
+    // 二维码容器移动端适配
+    .qrcode-container {
+      min-height: 200px;
+      
+      .qrcode-wrapper {
+        .qrcode-tip {
+          font-size: 14px;
+          margin-bottom: 12px;
+        }
+        
+        .qrcode-image {
+          max-width: 150px;
+          max-height: 150px;
+        }
+      }
+      
+      .loading-wrapper, .success-wrapper, .error-wrapper {
+        .el-icon {
+          font-size: 36px;
+        }
+        
+        span {
+          font-size: 14px;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .account-management {
+    .page-header {
+      h1 {
+        font-size: 18px;
+      }
+    }
+    
+    .account-tabs {
+      .account-tabs-nav {
+        padding: 12px;
+      }
+    }
+    
+    .account-list-container {
+      .account-search {
+        .action-buttons {
+          .el-button {
+            font-size: 12px;
+            padding: 6px 12px;
+          }
+        }
+      }
+      
+      .account-list {
+        .mobile-account-list {
+          .mobile-account-card {
+            padding: 12px;
+            
+            .account-header {
+              .account-info {
+                .account-name {
+                  font-size: 14px;
+                }
+              }
+            }
+            
+            .account-actions {
+              .el-button {
+                font-size: 12px;
+                padding: 4px 8px;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // 二维码容器小屏幕适配
+    .qrcode-container {
+      min-height: 180px;
+      
+      .qrcode-wrapper {
+        .qrcode-tip {
+          font-size: 13px;
+        }
+        
+        .qrcode-image {
+          max-width: 120px;
+          max-height: 120px;
+        }
+      }
+      
+      .loading-wrapper, .success-wrapper, .error-wrapper {
+        .el-icon {
+          font-size: 32px;
+        }
+        
+        span {
+          font-size: 13px;
+        }
+      }
     }
   }
 }

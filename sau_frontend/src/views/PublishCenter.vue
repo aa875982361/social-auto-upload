@@ -1037,10 +1037,21 @@ onMounted(() => {
     margin-bottom: 20px;
     padding: 15px 20px;
     
+    @media (max-width: $breakpoint-sm) {
+      padding: 12px;
+      margin: 0 -12px 12px -12px;
+      border-radius: 0;
+    }
+    
     .tab-header {
       display: flex;
       align-items: flex-start;
       gap: 15px;
+      
+      @media (max-width: $breakpoint-sm) {
+        flex-direction: column;
+        gap: 12px;
+      }
       
       .tab-list {
         display: flex;
@@ -1048,6 +1059,11 @@ onMounted(() => {
         gap: 10px;
         flex: 1;
         min-width: 0;
+        
+        @media (max-width: $breakpoint-sm) {
+          width: 100%;
+          justify-content: center;
+        }
         
         .tab-item {
            display: flex;
@@ -1061,6 +1077,12 @@ onMounted(() => {
            transition: all 0.3s;
            font-size: 14px;
            height: 32px;
+           
+           @media (max-width: $breakpoint-sm) {
+             font-size: 12px;
+             padding: 4px 8px;
+             height: 28px;
+           }
            
            &:hover {
              background-color: #ecf5ff;
@@ -1088,6 +1110,11 @@ onMounted(() => {
              transition: background-color 0.3s;
              font-size: 12px;
              
+             @media (max-width: $breakpoint-sm) {
+               font-size: 10px;
+               padding: 1px;
+             }
+             
              &:hover {
                background-color: rgba(0, 0, 0, 0.1);
              }
@@ -1100,6 +1127,12 @@ onMounted(() => {
         gap: 10px;
         flex-shrink: 0;
         
+        @media (max-width: $breakpoint-sm) {
+          width: 100%;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+        
         .add-tab-btn,
         .batch-publish-btn {
           display: flex;
@@ -1109,6 +1142,15 @@ onMounted(() => {
           padding: 6px 12px;
           font-size: 14px;
           white-space: nowrap;
+          
+          @media (max-width: $breakpoint-sm) {
+            height: 28px;
+            padding: 4px 8px;
+            font-size: 12px;
+            flex: 1;
+            justify-content: center;
+            min-width: 0;
+          }
         }
       }
     }
@@ -1177,6 +1219,12 @@ onMounted(() => {
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     padding: 20px;
     
+    @media (max-width: $breakpoint-sm) {
+      padding: 12px;
+      margin: 0 -12px;
+      border-radius: 0;
+    }
+    
     .tab-content-wrapper {
       display: flex;
       justify-content: center;
@@ -1190,6 +1238,11 @@ onMounted(() => {
           font-weight: 500;
           color: $text-primary;
           margin: 0 0 10px 0;
+          
+          @media (max-width: $breakpoint-sm) {
+            font-size: 14px;
+            margin-bottom: 8px;
+          }
         }
         
         .upload-section,
@@ -1199,6 +1252,10 @@ onMounted(() => {
         .topic-section,
         .schedule-section {
           margin-bottom: 30px;
+          
+          @media (max-width: $breakpoint-sm) {
+            margin-bottom: 20px;
+          }
         }
         
         .video-upload {
@@ -1207,11 +1264,19 @@ onMounted(() => {
           :deep(.el-upload-dragger) {
             width: 100%;
             height: 180px;
+            
+            @media (max-width: $breakpoint-sm) {
+              height: 120px;
+            }
           }
         }
         
         .account-input {
           max-width: 400px;
+          
+          @media (max-width: $breakpoint-sm) {
+            max-width: 100%;
+          }
         }
         
         .platform-buttons {
@@ -1219,13 +1284,27 @@ onMounted(() => {
           gap: 10px;
           flex-wrap: wrap;
           
+          @media (max-width: $breakpoint-sm) {
+            gap: 8px;
+          }
+          
           .platform-btn {
             min-width: 80px;
+            
+            @media (max-width: $breakpoint-sm) {
+              min-width: 60px;
+              font-size: 12px;
+              padding: 6px 8px;
+            }
           }
         }
         
         .title-input {
           max-width: 600px;
+          
+          @media (max-width: $breakpoint-sm) {
+            max-width: 100%;
+          }
         }
         
         .account-display {
@@ -1233,14 +1312,28 @@ onMounted(() => {
           flex-direction: column;
           gap: 12px;
           
+          @media (max-width: $breakpoint-sm) {
+            gap: 8px;
+          }
+          
           .selected-accounts {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
             min-height: 32px;
             
+            @media (max-width: $breakpoint-sm) {
+              gap: 6px;
+              min-height: 28px;
+            }
+            
             .account-tag {
               font-size: 14px;
+              
+              @media (max-width: $breakpoint-sm) {
+                font-size: 12px;
+                padding: 2px 6px;
+              }
             }
           }
           
@@ -1249,11 +1342,23 @@ onMounted(() => {
             gap: 10px;
             align-items: center;
             
+            @media (max-width: $breakpoint-sm) {
+              flex-direction: column;
+              gap: 8px;
+              align-items: stretch;
+            }
+            
             .select-account-btn,
             .refresh-account-btn {
               display: flex;
               align-items: center;
               gap: 4px;
+              
+              @media (max-width: $breakpoint-sm) {
+                justify-content: center;
+                font-size: 12px;
+                padding: 6px 8px;
+              }
             }
           }
         }
@@ -1263,19 +1368,40 @@ onMounted(() => {
           flex-direction: column;
           gap: 12px;
           
+          @media (max-width: $breakpoint-sm) {
+            gap: 8px;
+          }
+          
           .selected-topics {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
             min-height: 32px;
             
+            @media (max-width: $breakpoint-sm) {
+              gap: 6px;
+              min-height: 28px;
+            }
+            
             .topic-tag {
               font-size: 14px;
+              
+              @media (max-width: $breakpoint-sm) {
+                font-size: 12px;
+                padding: 2px 6px;
+              }
             }
           }
           
           .select-topic-btn {
             align-self: flex-start;
+            
+            @media (max-width: $breakpoint-sm) {
+              width: 100%;
+              justify-content: center;
+              font-size: 12px;
+              padding: 6px 8px;
+            }
           }
         }
         
@@ -1284,16 +1410,32 @@ onMounted(() => {
           flex-direction: column;
           gap: 15px;
 
+          @media (max-width: $breakpoint-sm) {
+            gap: 12px;
+          }
+
           .schedule-settings {
             margin-top: 15px;
             padding: 15px;
             background-color: #f5f7fa;
             border-radius: 4px;
+            
+            @media (max-width: $breakpoint-sm) {
+              margin-top: 12px;
+              padding: 12px;
+            }
 
             .schedule-item {
               display: flex;
               align-items: center;
               margin-bottom: 15px;
+
+              @media (max-width: $breakpoint-sm) {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                margin-bottom: 12px;
+              }
 
               &:last-child {
                 margin-bottom: 0;
@@ -1302,14 +1444,31 @@ onMounted(() => {
               .label {
                 min-width: 120px;
                 margin-right: 10px;
+                
+                @media (max-width: $breakpoint-sm) {
+                  min-width: auto;
+                  margin-right: 0;
+                  margin-bottom: 4px;
+                  font-size: 12px;
+                }
               }
 
               .el-time-select {
                 margin-right: 10px;
+                
+                @media (max-width: $breakpoint-sm) {
+                  margin-right: 0;
+                  width: 100%;
+                }
               }
 
               .el-button {
                 margin-left: 10px;
+                
+                @media (max-width: $breakpoint-sm) {
+                  margin-left: 0;
+                  width: 100%;
+                }
               }
             }
           }
@@ -1322,6 +1481,17 @@ onMounted(() => {
           margin-top: 30px;
           padding-top: 20px;
           border-top: 1px solid #ebeef5;
+          
+          @media (max-width: $breakpoint-sm) {
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 20px;
+            padding-top: 15px;
+            
+            .el-button {
+              width: 100%;
+            }
+          }
         }
       }
     }
@@ -1331,17 +1501,30 @@ onMounted(() => {
   .uploaded-files {
     margin-top: 20px;
     
+    @media (max-width: $breakpoint-sm) {
+      margin-top: 12px;
+    }
+    
     h4 {
       font-size: 16px;
       font-weight: 500;
       margin-bottom: 12px;
       color: #303133;
+      
+      @media (max-width: $breakpoint-sm) {
+        font-size: 14px;
+        margin-bottom: 8px;
+      }
     }
     
     .file-list {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      
+      @media (max-width: $breakpoint-sm) {
+        gap: 8px;
+      }
       
       .file-item {
         display: flex;
@@ -1350,18 +1533,37 @@ onMounted(() => {
         background-color: #f5f7fa;
         border-radius: 4px;
         
+        @media (max-width: $breakpoint-sm) {
+          padding: 8px 12px;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+        }
+        
         .el-link {
           margin-right: 10px;
           max-width: 300px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          
+          @media (max-width: $breakpoint-sm) {
+            margin-right: 0;
+            max-width: 100%;
+            font-size: 12px;
+          }
         }
         
         .file-size {
           color: #909399;
           font-size: 13px;
           margin-right: auto;
+          
+          @media (max-width: $breakpoint-sm) {
+            font-size: 11px;
+            margin-right: 0;
+            text-align: center;
+          }
         }
       }
     }
@@ -1375,6 +1577,12 @@ onMounted(() => {
         gap: 12px;
         margin-bottom: 24px;
         
+        @media (max-width: $breakpoint-sm) {
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+        
         .custom-input {
           flex: 1;
         }
@@ -1386,12 +1594,22 @@ onMounted(() => {
           font-size: 16px;
           font-weight: 500;
           color: #303133;
+          
+          @media (max-width: $breakpoint-sm) {
+            font-size: 14px;
+            margin-bottom: 12px;
+          }
         }
         
         .topic-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
           gap: 12px;
+          
+          @media (max-width: $breakpoint-sm) {
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 8px;
+          }
           
           .topic-btn {
             height: 36px;
@@ -1404,6 +1622,13 @@ onMounted(() => {
             display: flex;
             align-items: center;
             justify-content: center;
+            
+            @media (max-width: $breakpoint-sm) {
+              height: 32px;
+              font-size: 12px;
+              min-width: 80px;
+              padding: 0 8px;
+            }
             
             &.el-button--primary {
               background-color: #409eff;
@@ -1419,6 +1644,47 @@ onMounted(() => {
       display: flex;
       justify-content: flex-end;
       gap: 12px;
+      
+      @media (max-width: $breakpoint-sm) {
+        flex-direction: column;
+        gap: 8px;
+        
+        .el-button {
+          width: 100%;
+        }
+      }
+    }
+  }
+  
+  // 移动端对话框优化
+  @media (max-width: $breakpoint-sm) {
+    :deep(.el-dialog) {
+      width: 95% !important;
+      margin: 5vh auto !important;
+    }
+    
+    :deep(.el-dialog__wrapper) {
+      padding: 0 12px;
+    }
+    
+    :deep(.el-upload-dragger) {
+      height: 120px !important;
+    }
+    
+    :deep(.el-upload__text) {
+      font-size: 12px;
+    }
+    
+    :deep(.el-form-item__label) {
+      font-size: 12px;
+    }
+    
+    :deep(.el-input__inner) {
+      font-size: 12px;
+    }
+    
+    :deep(.el-textarea__inner) {
+      font-size: 12px;
     }
   }
 }

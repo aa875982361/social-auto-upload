@@ -7,7 +7,7 @@
     <div class="dashboard-content">
       <el-row :gutter="20">
         <!-- 账号统计卡片 -->
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-card-content">
               <div class="stat-icon">
@@ -28,7 +28,7 @@
         </el-col>
         
         <!-- 平台统计卡片 -->
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-card-content">
               <div class="stat-icon platform-icon">
@@ -59,7 +59,7 @@
         </el-col>
         
         <!-- 任务统计卡片 -->
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-card-content">
               <div class="stat-icon task-icon">
@@ -81,7 +81,7 @@
         </el-col>
         
         <!-- 内容统计卡片 -->
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
           <el-card class="stat-card">
             <div class="stat-card-content">
               <div class="stat-icon content-icon">
@@ -106,7 +106,7 @@
       <div class="quick-actions">
         <h2>快捷操作</h2>
         <el-row :gutter="20">
-          <el-col :span="6">
+          <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
             <el-card class="action-card" @click="navigateTo('/account-management')">
               <div class="action-icon">
                 <el-icon><UserFilled /></el-icon>
@@ -115,7 +115,7 @@
               <div class="action-desc">管理所有平台账号</div>
             </el-card>
           </el-col>
-          <el-col :span="6">
+          <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
             <el-card class="action-card">
               <div class="action-icon">
                 <el-icon><Upload /></el-icon>
@@ -124,7 +124,7 @@
               <div class="action-desc">上传视频和图文内容</div>
             </el-card>
           </el-col>
-          <el-col :span="6">
+          <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
             <el-card class="action-card">
               <div class="action-icon">
                 <el-icon><Timer /></el-icon>
@@ -133,7 +133,7 @@
               <div class="action-desc">设置内容发布时间</div>
             </el-card>
           </el-col>
-          <el-col :span="6">
+          <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
             <el-card class="action-card">
               <div class="action-icon">
                 <el-icon><DataAnalysis /></el-icon>
@@ -152,7 +152,8 @@
           <el-button text>查看全部</el-button>
         </div>
         
-        <el-table :data="recentTasks" style="width: 100%">
+        <!-- 桌面端表格 -->
+        <el-table :data="recentTasks" style="width: 100%" class="desktop-table">
           <el-table-column prop="title" label="任务名称" width="250" />
           <el-table-column prop="platform" label="平台" width="120">
             <template #default="scope">
@@ -198,6 +199,65 @@
             </template>
           </el-table-column>
         </el-table>
+        
+        <!-- 移动端卡片列表 -->
+        <div class="mobile-task-list">
+          <div 
+            v-for="task in recentTasks" 
+            :key="task.id" 
+            class="mobile-task-card"
+          >
+            <div class="task-header">
+              <h3 class="task-title">{{ task.title }}</h3>
+              <el-tag
+                :type="getStatusTagType(task.status)"
+                effect="plain"
+                size="small"
+              >
+                {{ task.status }}
+              </el-tag>
+            </div>
+            <div class="task-info">
+              <div class="task-item">
+                <span class="label">平台:</span>
+                <el-tag
+                  :type="getPlatformTagType(task.platform)"
+                  effect="plain"
+                  size="small"
+                >
+                  {{ task.platform }}
+                </el-tag>
+              </div>
+              <div class="task-item">
+                <span class="label">账号:</span>
+                <span class="value">{{ task.account }}</span>
+              </div>
+              <div class="task-item">
+                <span class="label">创建时间:</span>
+                <span class="value">{{ task.createTime }}</span>
+              </div>
+            </div>
+            <div class="task-actions">
+              <el-button size="small" @click="viewTaskDetail(task)">查看</el-button>
+              <el-button 
+                size="small" 
+                type="primary" 
+                v-if="task.status === '待执行'"
+                @click="executeTask(task)"
+              >
+                执行
+              </el-button>
+              <el-button 
+                size="small" 
+                type="danger" 
+                v-if="task.status !== '已完成' && task.status !== '已失败'"
+                @click="cancelTask(task)"
+              >
+                取消
+              </el-button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -540,6 +600,269 @@ const cancelTask = (task) => {
           font-size: 18px;
           color: $text-primary;
           margin: 0;
+        }
+      }
+      
+      // 桌面端表格
+      .desktop-table {
+        display: block;
+      }
+      
+      // 移动端任务卡片列表
+      .mobile-task-list {
+        display: none;
+        
+        .mobile-task-card {
+          background: white;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 12px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          
+          .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            
+            .task-title {
+              font-size: 16px;
+              font-weight: 500;
+              color: $text-primary;
+              margin: 0;
+              flex: 1;
+              margin-right: 12px;
+            }
+          }
+          
+          .task-info {
+            margin-bottom: 12px;
+            
+            .task-item {
+              display: flex;
+              align-items: center;
+              margin-bottom: 8px;
+              
+              .label {
+                font-size: 13px;
+                color: $text-secondary;
+                margin-right: 8px;
+                min-width: 60px;
+              }
+              
+              .value {
+                font-size: 13px;
+                color: $text-primary;
+              }
+            }
+          }
+          
+          .task-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 移动端响应式样式
+@media (max-width: 768px) {
+  .dashboard {
+    .page-header {
+      margin-bottom: 16px;
+      
+      h1 {
+        font-size: 20px;
+      }
+    }
+    
+    .dashboard-content {
+      .stat-card {
+        height: 120px;
+        margin-bottom: 16px;
+        
+        .stat-card-content {
+          margin-bottom: 12px;
+          
+          .stat-icon {
+            width: 50px;
+            height: 50px;
+            margin-right: 12px;
+            
+            .el-icon {
+              font-size: 24px;
+            }
+          }
+          
+          .stat-info {
+            .stat-value {
+              font-size: 20px;
+            }
+            
+            .stat-label {
+              font-size: 13px;
+            }
+          }
+        }
+        
+        .stat-footer {
+          .stat-detail {
+            font-size: 12px;
+            flex-direction: column;
+            gap: 4px;
+          }
+        }
+      }
+      
+      .quick-actions {
+        margin: 16px 0 24px;
+        
+        h2 {
+          font-size: 16px;
+          margin-bottom: 12px;
+        }
+        
+        .action-card {
+          height: 140px;
+          
+          .action-icon {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 12px;
+            
+            .el-icon {
+              font-size: 20px;
+            }
+          }
+          
+          .action-title {
+            font-size: 14px;
+            margin-bottom: 4px;
+          }
+          
+          .action-desc {
+            font-size: 12px;
+          }
+        }
+      }
+      
+      .recent-tasks {
+        margin-top: 24px;
+        
+        .section-header {
+          margin-bottom: 12px;
+          
+          h2 {
+            font-size: 16px;
+          }
+        }
+        
+        // 隐藏桌面端表格，显示移动端卡片
+        .desktop-table {
+          display: none;
+        }
+        
+        .mobile-task-list {
+          display: block;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard {
+    .page-header {
+      h1 {
+        font-size: 18px;
+      }
+    }
+    
+    .dashboard-content {
+      .stat-card {
+        height: 100px;
+        
+        .stat-card-content {
+          .stat-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+            
+            .el-icon {
+              font-size: 20px;
+            }
+          }
+          
+          .stat-info {
+            .stat-value {
+              font-size: 18px;
+            }
+            
+            .stat-label {
+              font-size: 12px;
+            }
+          }
+        }
+      }
+      
+      .quick-actions {
+        .action-card {
+          height: 120px;
+          
+          .action-icon {
+            width: 35px;
+            height: 35px;
+            margin-bottom: 10px;
+            
+            .el-icon {
+              font-size: 18px;
+            }
+          }
+          
+          .action-title {
+            font-size: 13px;
+          }
+          
+          .action-desc {
+            font-size: 11px;
+          }
+        }
+      }
+      
+      .recent-tasks {
+        .mobile-task-list {
+          .mobile-task-card {
+            padding: 12px;
+            
+            .task-header {
+              .task-title {
+                font-size: 14px;
+              }
+            }
+            
+            .task-info {
+              .task-item {
+                .label {
+                  font-size: 12px;
+                  min-width: 50px;
+                }
+                
+                .value {
+                  font-size: 12px;
+                }
+              }
+            }
+            
+            .task-actions {
+              .el-button {
+                font-size: 12px;
+                padding: 4px 8px;
+              }
+            }
+          }
         }
       }
     }

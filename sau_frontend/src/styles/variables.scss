@@ -52,3 +52,15 @@ $box-shadow-light: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 $z-index-normal: 1;
 $z-index-top: 1000;
 $z-index-popper: 2000;
+
+// 响应式断点
+$breakpoint-xs: 480px;
+$breakpoint-sm: 768px;
+$breakpoint-md: 992px;
+$breakpoint-lg: 1200px;
+$breakpoint-xl: 1920px;
+
+// 移动端专用变量
+$mobile-header-height: 50px;
+$mobile-sidebar-width: 200px;
+$mobile-padding: 12px;

@@ -223,10 +223,111 @@ onMounted(() => {
 }
 
 // 响应式设计
-@media (max-width: 480px) {
+@media (max-width: 768px) {
+  .login-container {
+    padding: 16px;
+  }
+  
   .login-form {
-    padding: 30px 20px;
-    margin: 10px;
+    padding: 32px 24px;
+    max-width: 100%;
+    
+    .logo-section {
+      margin-bottom: 24px;
+      
+      .logo {
+        width: 50px;
+        height: 50px;
+        margin-bottom: 12px;
+      }
+      
+      h1 {
+        font-size: 20px;
+      }
+      
+      p {
+        font-size: 13px;
+      }
+    }
+    
+    .login-form-content {
+      h2 {
+        font-size: 18px;
+        margin-bottom: 24px;
+      }
+      
+      .el-form-item {
+        margin-bottom: 16px;
+      }
+      
+      .login-btn {
+        height: 42px;
+        font-size: 15px;
+      }
+    }
+    
+    .tips {
+      margin-top: 16px;
+      padding: 12px;
+      
+      p {
+        font-size: 11px;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .login-container {
+    padding: 12px;
+  }
+  
+  .login-form {
+    padding: 24px 16px;
+    margin: 8px;
+    
+    .logo-section {
+      margin-bottom: 20px;
+      
+      .logo {
+        width: 45px;
+        height: 45px;
+        margin-bottom: 10px;
+      }
+      
+      h1 {
+        font-size: 18px;
+      }
+      
+      p {
+        font-size: 12px;
+      }
+    }
+    
+    .login-form-content {
+      h2 {
+        font-size: 16px;
+        margin-bottom: 20px;
+      }
+      
+      .el-form-item {
+        margin-bottom: 14px;
+      }
+      
+      .login-btn {
+        height: 40px;
+        font-size: 14px;
+      }
+    }
+    
+    .tips {
+      margin-top: 14px;
+      padding: 10px;
+      
+      p {
+        font-size: 10px;
+      }
+    }
   }
 }
 </style>
