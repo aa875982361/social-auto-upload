@@ -451,13 +451,14 @@ import { ElMessage } from 'element-plus'
 import { useAccountStore } from '@/stores/account'
 import { useAppStore } from '@/stores/app'
 import { materialApi } from '@/api/material'
+import { publishApi } from '@/api/publish'
 
-// API base URL
+// API base URL (用于其他非统一API调用)
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5409'
 
-// Authorization headers
+// Authorization headers (用于 el-upload 组件)
 const authHeaders = computed(() => ({
-  'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+  'Authorization': `Bearer ${localStorage.getItem('autb_token') || ''}`
 }))
 
 // 当前激活的tab
@@ -751,15 +752,7 @@ const confirmPublish = async (tab) => {
     }
     
     // 调用后端发布API
-    fetch(`${apiBaseUrl}/api/postVideo`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders.value
-      },
-      body: JSON.stringify(publishData)
-    })
-    .then(response => response.json())
+    publishApi.publishVideo(publishData)
     .then(data => {
       if (data.code === 200) {
         tab.publishStatus = {
