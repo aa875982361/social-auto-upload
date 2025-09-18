@@ -17,7 +17,7 @@ from utils.browser_config import get_browser_options, is_docker_env
 async def save_debug_info(page, platform_name, user_id):
     try:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        debug_dir = Path(BASE_DIR / "logs" / "debug")
+        debug_dir = Path(BASE_DIR / "data" / "logs" / "debug")
         debug_dir.mkdir(parents=True, exist_ok=True)
         
         # 保存页面截图
