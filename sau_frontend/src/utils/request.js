@@ -12,8 +12,8 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   (config) => {
-    // 可以在这里添加token等认证信息
-    const token = localStorage.getItem('token')
+    // 添加token认证信息
+    const token = localStorage.getItem('auth_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -34,8 +34,8 @@ request.interceptors.response.use(
     if (data.code === 200 || data.success) {
       return data
     } else {
-      ElMessage.error(data.message || '请求失败')
-      return Promise.reject(new Error(data.message || '请求失败'))
+      ElMessage.error(data.msg || data.message || '请求失败')
+      return Promise.reject(new Error(data.msg || data.message || '请求失败'))
     }
   },
   (error) => {
@@ -43,11 +43,18 @@ request.interceptors.response.use(
     
     // 处理HTTP错误状态码
     if (error.response) {
-      const { status } = error.response
+      const { status, data } = error.response
       switch (status) {
         case 401:
-          ElMessage.error('未授权，请重新登录')
-          // 可以在这里处理登录跳转
+          ElMessage.error('登录已过期，请重新登录')
+          // 清除本地token并跳转到登录页
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('username')
+          localStorage.removeItem('login_time')
+          // 如果不是在登录页，则跳转到登录页
+          if (window.location.hash !== '#/login') {
+            window.location.href = '#/login'
+          }
           break
         case 403:
           ElMessage.error('拒绝访问')
@@ -59,7 +66,7 @@ request.interceptors.response.use(
           ElMessage.error('服务器内部错误')
           break
         default:
-          ElMessage.error('网络错误')
+          ElMessage.error(data?.msg || data?.message || '网络错误')
       }
     } else {
       ElMessage.error('网络连接失败')

@@ -1,76 +1,102 @@
 <template>
   <div id="app">
-    <el-container>
-      <el-aside :width="isCollapse ? '64px' : '200px'">
-        <div class="sidebar">
-          <div class="logo">
-            <img v-show="isCollapse" src="/vite.svg" alt="Logo" class="logo-img">
-            <h2 v-show="!isCollapse">自媒体自动化运营系统</h2>
-          </div>
-          <el-menu
-            :router="true"
-            :default-active="activeMenu"
-            :collapse="isCollapse"
-            class="sidebar-menu"
-            background-color="#001529"
-            text-color="#fff"
-            active-text-color="#409EFF"
-          >
-            <el-menu-item index="/">
-              <el-icon><HomeFilled /></el-icon>
-              <span>首页</span>
-            </el-menu-item>
-            <el-menu-item index="/account-management">
-              <el-icon><User /></el-icon>
-              <span>账号管理</span>
-            </el-menu-item>
-            <el-menu-item index="/material-management">
-              <el-icon><Picture /></el-icon>
-              <span>素材管理</span>
-            </el-menu-item>
-            <el-menu-item index="/publish-center">
-              <el-icon><Upload /></el-icon>
-              <span>发布中心</span>
-            </el-menu-item>
-            <el-menu-item index="/website">
-              <el-icon><Monitor /></el-icon>
-              <span>网站</span>
-            </el-menu-item>
-            <el-menu-item index="/data">
-              <el-icon><DataAnalysis /></el-icon>
-              <span>数据</span>
-            </el-menu-item>
-          </el-menu>
-        </div>
-      </el-aside>
+    <!-- 登录页面：无侧边栏布局 -->
+    <template v-if="$route.path === '/login'">
+      <router-view />
+    </template>
+    
+    <!-- 主应用：带侧边栏布局 -->
+    <template v-else>
       <el-container>
-        <el-header>
-          <div class="header-content">
-            <div class="header-left">
-              <el-icon class="toggle-sidebar" @click="toggleSidebar"><Fold /></el-icon>
+        <el-aside :width="isCollapse ? '64px' : '200px'">
+          <div class="sidebar">
+            <div class="logo">
+              <img v-show="isCollapse" src="/vite.svg" alt="Logo" class="logo-img">
+              <h2 v-show="!isCollapse">自媒体自动化运营系统</h2>
             </div>
-            <div class="header-right">
-              <!-- 账号信息已移除 -->
-            </div>
+            <el-menu
+              :router="true"
+              :default-active="activeMenu"
+              :collapse="isCollapse"
+              class="sidebar-menu"
+              background-color="#001529"
+              text-color="#fff"
+              active-text-color="#409EFF"
+            >
+              <el-menu-item index="/">
+                <el-icon><HomeFilled /></el-icon>
+                <span>首页</span>
+              </el-menu-item>
+              <el-menu-item index="/account-management">
+                <el-icon><User /></el-icon>
+                <span>账号管理</span>
+              </el-menu-item>
+              <el-menu-item index="/material-management">
+                <el-icon><Picture /></el-icon>
+                <span>素材管理</span>
+              </el-menu-item>
+              <el-menu-item index="/publish-center">
+                <el-icon><Upload /></el-icon>
+                <span>发布中心</span>
+              </el-menu-item>
+              <el-menu-item index="/about">
+                <el-icon><Monitor /></el-icon>
+                <span>关于</span>
+              </el-menu-item>
+            </el-menu>
           </div>
-        </el-header>
-        <el-main>
-          <router-view />
-        </el-main>
+        </el-aside>
+        <el-container>
+          <el-header>
+            <div class="header-content">
+              <div class="header-left">
+                <el-icon class="toggle-sidebar" @click="toggleSidebar"><Fold /></el-icon>
+              </div>
+              <div class="header-right">
+                <el-dropdown v-if="authStore.isLoggedIn" @command="handleCommand">
+                  <div class="user-dropdown">
+                    <el-icon><User /></el-icon>
+                    <span class="username">{{ authStore.userInfo.username }}</span>
+                    <el-icon><CaretBottom /></el-icon>
+                  </div>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="profile">
+                        <el-icon><User /></el-icon>
+                        个人信息
+                      </el-dropdown-item>
+                      <el-dropdown-item command="logout" divided>
+                        <el-icon><SwitchButton /></el-icon>
+                        退出登录
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+            </div>
+          </el-header>
+          <el-main>
+            <router-view />
+          </el-main>
+        </el-container>
       </el-container>
-    </el-container>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import { 
   HomeFilled, User, Monitor, DataAnalysis, 
-  Fold, Picture, Upload
+  Fold, Picture, Upload, CaretBottom, SwitchButton
 } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 
 // 当前激活的菜单项
 const activeMenu = computed(() => {
@@ -84,6 +110,38 @@ const isCollapse = ref(false)
 const toggleSidebar = () => {
   isCollapse.value = !isCollapse.value
 }
+
+// 处理用户下拉菜单命令
+const handleCommand = async (command) => {
+  switch (command) {
+    case 'profile':
+      // 暂时显示用户信息
+      ElMessage.info(`当前用户：${authStore.userInfo.username}`)
+      break
+    case 'logout':
+      try {
+        await ElMessageBox.confirm(
+          '确定要退出登录吗？',
+          '退出确认',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+        authStore.logout()
+        ElMessage.success('已退出登录')
+      } catch {
+        // 用户取消
+      }
+      break
+  }
+}
+
+// 组件挂载时初始化认证状态
+onMounted(() => {
+  authStore.initAuth()
+})
 </script>
 
 <style lang="scss" scoped>

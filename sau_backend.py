@@ -290,7 +290,7 @@ def get_all_files():
 
 @app.route("/api/getValidAccounts",methods=['GET'])
 @token_required
-async def getValidAccounts():
+def getValidAccounts():
     # 获取搜索关键词参数
     search_keyword = request.args.get('search', '').strip()
     
@@ -311,17 +311,26 @@ async def getValidAccounts():
         print("\n📋 当前数据表内容：")
         for row in rows:
             print(row)
-        for row in rows_list:
-            flag = await check_cookie(row[1],row[2])
-            if not flag:
-                row[4] = 0
-                cursor.execute('''
-                UPDATE user_info 
-                SET status = ? 
-                WHERE id = ?
-                ''', (0,row[0]))
-                conn.commit()
-                print("✅ 用户状态已更新")
+        
+        # 创建新的事件循环来处理异步cookie检查
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            for row in rows_list:
+                flag = loop.run_until_complete(check_cookie(row[1],row[2]))
+                if not flag:
+                    row[4] = 0
+                    cursor.execute('''
+                    UPDATE user_info 
+                    SET status = ? 
+                    WHERE id = ?
+                    ''', (0,row[0]))
+                    conn.commit()
+                    print("✅ 用户状态已更新")
+        finally:
+            loop.close()
+            
         for row in rows:
             print(row)
         return jsonify(
