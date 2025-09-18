@@ -436,7 +436,15 @@
           <!-- 操作按钮 -->
           <div class="action-buttons">
             <el-button size="small" @click="cancelPublish(tab)">取消</el-button>
-            <el-button size="small" type="primary" @click="confirmPublish(tab)">发布</el-button>
+            <el-button 
+              size="small" 
+              type="primary" 
+              @click="confirmPublish(tab)"
+              :loading="tab.publishing"
+              :disabled="tab.publishing"
+            >
+              {{ tab.publishing ? '发布中...' : '发布' }}
+            </el-button>
           </div>
         </div>
       </div>
@@ -506,7 +514,8 @@ const tabs = reactive([
     videosPerDay: 1, // 每天发布视频数量
     dailyTimes: ['10:00'], // 每天发布时间点列表
     startDays: 0, // 从今天开始计算的发布天数，0表示明天，1表示后天
-    publishStatus: null // 发布状态，包含message和type
+    publishStatus: null, // 发布状态，包含message和type
+    publishing: false // 是否正在发布中
   }
 ])
 
@@ -557,7 +566,8 @@ const addTab = () => {
     videosPerDay: 1,
     dailyTimes: ['10:00'],
     startDays: 0,
-    publishStatus: null
+    publishStatus: null,
+    publishing: false
   }
   tabs.push(newTab)
   activeTab.value = newTab.name
@@ -711,6 +721,12 @@ const cancelPublish = (tab) => {
 
 // 确认发布
 const confirmPublish = async (tab) => {
+  // 防止重复点击
+  if (tab.publishing) {
+    ElMessage.warning('正在发布中，请勿重复点击')
+    return Promise.reject(new Error('正在发布中'))
+  }
+
   return new Promise((resolve, reject) => {
     // 数据验证
     if (tab.fileList.length === 0) {
@@ -733,6 +749,9 @@ const confirmPublish = async (tab) => {
       reject(new Error('请选择发布账号'))
       return
     }
+
+    // 设置发布状态
+    tab.publishing = true
     
     // 构造发布数据，符合后端API格式
     const publishData = {
@@ -782,6 +801,10 @@ const confirmPublish = async (tab) => {
         type: 'error'
       }
       reject(error)
+    })
+    .finally(() => {
+      // 无论成功或失败都重置发布状态
+      tab.publishing = false
     })
   })
 }

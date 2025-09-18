@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 import sqlite3
 import threading
@@ -20,7 +21,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 active_queues = {}
+# 正在发布的任务集合，用于防止重复提交
+publishing_tasks = set()
 app = Flask(__name__)
+
+def generate_task_id(title, file_list, account_list, type):
+    """生成任务唯一标识，基于标题、文件列表、账号列表和平台类型"""
+    # 将列表转换为排序后的字符串，确保相同内容生成相同ID
+    file_str = '|'.join(sorted(file_list))
+    account_str = '|'.join(sorted(account_list))
+    
+    # 组合所有关键信息
+    task_data = f"{title}|{file_str}|{account_str}|{type}"
+    
+    # 生成MD5哈希作为任务ID
+    return hashlib.md5(task_data.encode('utf-8')).hexdigest()
 
 def init_database():
     """初始化数据库，仅在数据库不存在时创建表"""
@@ -552,6 +567,22 @@ def postVideo():
         
         print(f"文件处理完成，最终文件列表: {processed_file_list}")
         
+        # 生成任务唯一标识
+        task_id = generate_task_id(title, file_list, account_list, type)
+        print(f"生成任务ID: {task_id}")
+        
+        # 检查是否有重复任务正在进行
+        if task_id in publishing_tasks:
+            return jsonify({
+                "code": 409,
+                "msg": "相同的发布任务正在进行中，请勿重复提交",
+                "data": {"task_id": task_id}
+            }), 409
+        
+        # 将任务ID添加到正在发布的任务集合中
+        publishing_tasks.add(task_id)
+        print(f"任务 {task_id} 已添加到发布队列")
+        
     except Exception as e:
         print(f"参数解析或文件处理错误: {e}")
         return jsonify({
@@ -585,7 +616,8 @@ def postVideo():
                 "processed_files": len(processed_file_list),
                 "online_resources_downloaded": online_count,
                 "local_files": local_count,
-                "download_success_rate": f"{len(processed_file_list)}/{len(file_list)}"
+                "download_success_rate": f"{len(processed_file_list)}/{len(file_list)}",
+                "task_id": task_id
             }
         }), 200
         
@@ -596,6 +628,14 @@ def postVideo():
             "msg": f"视频上传处理失败: {str(e)}",
             "data": None
         }), 500
+    finally:
+        # 无论成功还是失败，都要从发布队列中移除任务ID
+        try:
+            if 'task_id' in locals():
+                publishing_tasks.discard(task_id)
+                print(f"任务 {task_id} 已从发布队列中移除")
+        except Exception as cleanup_error:
+            print(f"清理任务ID时出错: {cleanup_error}")
 
 
 @app.route('/api/updateUserinfo', methods=['POST'])

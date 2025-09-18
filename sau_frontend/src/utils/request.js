@@ -62,6 +62,9 @@ request.interceptors.response.use(
         case 404:
           ElMessage.error('请求地址不存在')
           break
+        case 409:
+          ElMessage.error(data?.msg || data?.message || '资源冲突')
+          break
         case 500:
           ElMessage.error('服务器内部错误')
           break
