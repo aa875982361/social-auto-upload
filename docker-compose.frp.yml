@@ -1,0 +1,89 @@
+version: '3.8'
+
+# FRP网络穿透服务配置
+# 用于将本地服务通过FRP暴露到公网
+
+services:
+  # FRP客户端服务
+  frp-client:
+    image: snowdreamtech/frpc:0.52.3
+    container_name: sau-frp-client
+    restart: unless-stopped
+    volumes:
+      - ./frp-client/conf/frpc.ini:/etc/frp/frpc.ini:ro
+      - ./frp-client/logs:/var/log
+    networks:
+      - sau-network
+    depends_on:
+      - backend
+      - frontend
+    environment:
+      - FRP_SERVER_ADDR=${FRP_SERVER_ADDR:-your-server-ip}
+      - FRP_SERVER_PORT=${FRP_SERVER_PORT:-7000}
+      - FRP_TOKEN=${FRP_TOKEN:-your_frp_token_here}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:7400"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - frp
+
+  # 后端服务（复用现有配置）
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: sau-backend
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DOCKER_ENV=true
+      - FLASK_ENV=production
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./videoFile:/app/videoFile
+      - ./media:/app/media
+      - ./ssl:/app/ssl
+      - ./cookiesFile:/app/cookiesFile
+    ports:
+      - "5409:5409"
+    networks:
+      - sau-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5409/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 前端服务（复用现有配置）
+  frontend:
+    build:
+      context: ./sau_frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:5409}
+    container_name: sau-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+    networks:
+      - sau-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  sau-network:
+    driver: bridge
+
+volumes:
+  data:
+  logs:
+  videoFile:
+  media:
