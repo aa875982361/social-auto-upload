@@ -435,8 +435,24 @@ def delete_account():
 
 # SSE 登录接口 (与账号登录不同，这是社交媒体账号登录)
 @app.route('/api/account/login')
-@token_required
 def account_login():
+    token = request.args.get('token')
+    # 如果URL中包含token参数，验证token
+    if not token:
+        return jsonify({
+            'code': 401,
+            'msg': '缺少认证token',
+            'data': None
+        }), 401
+    if token:
+        from myUtils.jwt_auth import jwt_auth
+        is_valid, payload = jwt_auth.verify_token(token)
+        if not is_valid:
+            return jsonify({
+                'code': 401,
+                'msg': payload.get('error', 'Token无效或已过期'),
+                'data': None
+            }), 401
     # 1 小红书 2 视频号 3 抖音 4 快手
     type = request.args.get('type')
     # 账号名
