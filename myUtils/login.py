@@ -32,7 +32,7 @@ async def save_debug_info(page, platform_name, user_id):
             "current_url": page.url,
             "title": await page.title(),
             "is_docker": is_docker_env(),
-            "viewport": await page.viewport_size(),
+            "viewport": page.viewport_size,
         }
         
         debug_file = debug_dir / f"{platform_name}_{user_id}_{timestamp}_debug.txt"
