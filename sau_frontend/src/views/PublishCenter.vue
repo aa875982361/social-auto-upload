@@ -238,14 +238,26 @@
                   {{ getAccountDisplayName(account) }}
                 </el-tag>
               </div>
-              <el-button 
-                type="primary" 
-                plain 
-                @click="openAccountDialog(tab)"
-                class="select-account-btn"
-              >
-                选择账号
-              </el-button>
+              <div class="account-actions">
+                <el-button 
+                  type="primary" 
+                  plain 
+                  @click="openAccountDialog(tab)"
+                  class="select-account-btn"
+                >
+                  选择账号
+                </el-button>
+                <el-button 
+                  type="info" 
+                  plain 
+                  @click="refreshAccounts"
+                  :loading="isRefreshingAccounts"
+                  class="refresh-account-btn"
+                >
+                  <el-icon><Refresh /></el-icon>
+                  刷新账号
+                </el-button>
+              </div>
             </div>
           </div>
 
@@ -453,13 +465,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
-import { Upload, Plus, Close, Folder } from '@element-plus/icons-vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { Upload, Plus, Close, Folder, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAccountStore } from '@/stores/account'
 import { useAppStore } from '@/stores/app'
 import { materialApi } from '@/api/material'
 import { publishApi } from '@/api/publish'
+import { accountApi } from '@/api/account'
 
 // API base URL (用于其他非统一API调用)
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5409'
@@ -523,6 +536,7 @@ const tabs = reactive([
 const accountDialogVisible = ref(false)
 const tempSelectedAccounts = ref([])
 const currentTab = ref(null)
+const isRefreshingAccounts = ref(false)
 
 // 获取账号状态管理
 const accountStore = useAccountStore()
@@ -901,6 +915,36 @@ const cancelBatchPublish = () => {
   ElMessage.info('正在取消发布...')
 }
 
+// 刷新账号列表
+const refreshAccounts = async () => {
+  if (isRefreshingAccounts.value) return
+  
+  isRefreshingAccounts.value = true
+  
+  try {
+    const res = await accountApi.getValidAccounts()
+    if (res.code === 200 && res.data) {
+      accountStore.setAccounts(res.data)
+      ElMessage.success('账号列表刷新成功')
+    } else {
+      ElMessage.error('刷新账号列表失败')
+    }
+  } catch (error) {
+    console.error('刷新账号列表失败:', error)
+    ElMessage.error('刷新账号列表失败')
+  } finally {
+    isRefreshingAccounts.value = false
+  }
+}
+
+// 页面初始化时自动加载账号列表
+const initAccounts = async () => {
+  // 如果账号列表为空，自动加载
+  if (accountStore.accounts.length === 0) {
+    await refreshAccounts()
+  }
+}
+
 // 批量发布方法
 const batchPublish = async () => {
   if (batchPublishing.value) return
@@ -970,6 +1014,11 @@ const batchPublish = async () => {
     isCancelled.value = false
   }
 }
+
+// 页面挂载时初始化账号数据
+onMounted(() => {
+  initAccounts()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -1177,6 +1226,36 @@ const batchPublish = async () => {
         
         .title-input {
           max-width: 600px;
+        }
+        
+        .account-display {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          
+          .selected-accounts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 32px;
+            
+            .account-tag {
+              font-size: 14px;
+            }
+          }
+          
+          .account-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            
+            .select-account-btn,
+            .refresh-account-btn {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+            }
+          }
         }
         
         .topic-display {
