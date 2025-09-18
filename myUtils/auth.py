@@ -10,13 +10,15 @@ from conf import BASE_DIR
 from utils.base_social_media import set_init_script
 from utils.log import tencent_logger, kuaishou_logger
 from uploader.xhs_uploader.main import sign_local
-from utils.browser_config import get_browser_options
+from utils.browser_config import get_browser_options, get_douyin_optimized_context_options
 
 async def cookie_auth_douyin(account_file):
     async with async_playwright() as playwright:
         options = get_browser_options()
         browser = await playwright.chromium.launch(**options)
-        context = await browser.new_context(storage_state=account_file)
+        context_options = get_douyin_optimized_context_options()
+        context_options['storage_state'] = account_file
+        context = await browser.new_context(**context_options)
         context = await set_init_script(context)
         # 创建一个新的页面
         page = await context.new_page()

@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from conf import BASE_DIR
 
-from utils.browser_config import get_browser_options, is_docker_env
+from utils.browser_config import get_browser_options, is_docker_env, get_douyin_optimized_context_options
 
 
 class ConsoleMessageCollector:
@@ -123,7 +123,8 @@ async def douyin_cookie_gen(id,status_queue):
         # Make sure to run headed.
         browser = await playwright.chromium.launch(**options)
         # Setup context however you like.
-        context = await browser.new_context()  # Pass any options
+        context_options = get_douyin_optimized_context_options()
+        context = await browser.new_context(**context_options)
         context = await set_init_script(context)
         # Pause the page, and start recording manually.
         page = await context.new_page()

@@ -8,13 +8,15 @@ import asyncio
 from conf import LOCAL_CHROME_PATH
 from utils.base_social_media import set_init_script
 from utils.log import douyin_logger
-from utils.browser_config import get_browser_launch_options
+from utils.browser_config import get_browser_launch_options, get_douyin_optimized_context_options
 
 
 async def cookie_auth(account_file):
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=True)
-        context = await browser.new_context(storage_state=account_file)
+        context_options = get_douyin_optimized_context_options()
+        context_options['storage_state'] = account_file
+        context = await browser.new_context(**context_options)
         context = await set_init_script(context)
         # 创建一个新的页面
         page = await context.new_page()
@@ -99,7 +101,9 @@ class DouYinVideo(object):
         browser_options = get_browser_launch_options(self.local_executable_path)
         browser = await playwright.chromium.launch(**browser_options)
         # 创建一个浏览器上下文，使用指定的 cookie 文件
-        context = await browser.new_context(storage_state=f"{self.account_file}")
+        context_options = get_douyin_optimized_context_options()
+        context_options['storage_state'] = f"{self.account_file}"
+        context = await browser.new_context(**context_options)
         context = await set_init_script(context)
 
         # 创建一个新的页面
