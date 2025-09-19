@@ -1,4 +1,5 @@
 import os
+from conf import LOCAL_CHROME_PATH
 
 def is_docker_env():
     """检查是否在Docker环境中运行"""
@@ -21,7 +22,8 @@ def get_browser_options():
         }
     else:
         return {
-            'headless': False
+            'headless': False,
+            'executable_path': LOCAL_CHROME_PATH
         }
 
 def get_browser_launch_options(executable_path=None, proxy=None):
