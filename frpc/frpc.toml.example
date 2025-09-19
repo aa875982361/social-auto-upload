@@ -1,0 +1,52 @@
+# frp客户端配置文件 (TOML格式)
+
+[common]
+# frp服务器地址 - 请修改为您的frp服务器IP
+serverAddr = "192.168.1.100"
+# frp服务器端口 - 请修改为您的frp服务器端口
+serverPort = 7000
+# 认证token - 请修改为与frps服务器一致的token
+auth.token = "your_secure_token_here"
+
+# 日志配置
+log.to = "/var/log/frpc.log"
+log.level = "info"
+log.maxDays = 3
+
+# 管理界面
+webServer.addr = "127.0.0.1"
+webServer.port = 7400
+webServer.user = "admin"
+webServer.password = "admin123"
+
+# 后端服务代理 - 将本地5409端口映射到远程15409端口
+[[proxies]]
+name = "backend"
+type = "tcp"
+localIP = "backend"
+localPort = 5409
+remotePort = 15409
+
+# 前端服务代理 - 将本地80端口映射到远程18080端口
+[[proxies]]
+name = "frontend"
+type = "tcp"
+localIP = "frontend"
+localPort = 80
+remotePort = 18080
+
+# HTTP代理（可选）- 如果您有域名，可以使用HTTP代理
+[[proxies]]
+name = "http"
+type = "http"
+localIP = "frontend"
+localPort = 80
+customDomains = ["your-domain.com"]
+
+# HTTPS代理（可选）
+[[proxies]]
+name = "https"
+type = "https"
+localIP = "frontend"
+localPort = 80
+customDomains = ["your-domain.com"]

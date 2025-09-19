@@ -189,3 +189,6 @@ cookiesFile
 uploadFile
 videoFile
 
+
+frpc/frpc.toml
+

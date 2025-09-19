@@ -51,6 +51,24 @@ services:
       timeout: 10s
       retries: 3
 
+  # frpc客户端服务（统一配置）
+  frpc:
+    build:
+      context: ./frpc
+      dockerfile: Dockerfile
+    container_name: sau-frpc
+    restart: unless-stopped
+    volumes:
+      - ./frpc/frpc.toml:/etc/frp/frpc.toml:ro
+      - ./frpc/logs:/var/log
+    networks:
+      - sau-network
+    depends_on:
+      - backend
+      - frontend
+    profiles:
+      - separate-frpc
+
   # Nginx反向代理（已禁用，使用服务器nginx）
   # nginx:
   #   image: nginx:alpine
