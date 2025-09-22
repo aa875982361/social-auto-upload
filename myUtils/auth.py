@@ -83,17 +83,21 @@ async def cookie_auth_xhs(account_file):
         context = await set_init_script(context)
         # 创建一个新的页面
         page = await context.new_page()
+
         # 访问指定的 URL
-        await page.goto("https://creator.xiaohongshu.com/creator-micro/content/upload")
+        # 2025.09.22 小红书创作者中心改版  https://creator.xiaohongshu.com/publish/publish?from=menu&target=video
+        # await page.goto("https://creator.xiaohongshu.com/creator-micro/content/upload")
+        await page.goto("https://creator.xiaohongshu.com/publish/publish?from=menu&target=video")
         try:
-            await page.wait_for_url("https://creator.xiaohongshu.com/creator-micro/content/upload", timeout=5000)
+            await page.wait_for_url("https://creator.xiaohongshu.com/publish/publish?from=menu&target=video", timeout=5000)
         except:
             print("[+] 等待5秒 cookie 失效")
             await context.close()
             await browser.close()
             return False
         # 2024.06.17 抖音创作者中心改版
-        if await page.get_by_text('手机号登录').count() or await page.get_by_text('扫码登录').count():
+        await asyncio.sleep(5)
+        if await page.get_by_text('你访问的页面不见了').count() or await page.get_by_text('手机号登录').count() or await page.get_by_text('扫码登录').count():
             print("[+] 等待5秒 cookie 失效")
             return False
         else:
