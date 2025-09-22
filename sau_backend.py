@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import threading
 import time
@@ -107,6 +108,16 @@ def init_database():
         print("🔄 初始化数据库...")
     else:
         print("🔄 检查并创建数据库表...")
+        print("🔄 备份数据库表...")
+        # 备份现有数据库文件
+        backup_filename = f"{db_path.stem}_backup_{time.strftime('%Y%m%d_%H%M%S')}.db"
+        backup_path = db_path.parent / backup_filename
+        try:
+            shutil.copy2(db_path, backup_path)
+            print(f"✅ 数据库备份成功: {backup_filename}")
+        except Exception as e:
+            print(f"❌ 数据库备份失败: {e}")
+
     
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
