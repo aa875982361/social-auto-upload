@@ -264,23 +264,45 @@
           <!-- 账号选择弹窗 -->
           <el-dialog
             v-model="accountDialogVisible"
-            title="选择账号"
-            width="600px"
+            title="选择账号（支持跨平台多选）"
+            width="700px"
             class="account-dialog"
           >
             <div class="account-dialog-content">
               <el-checkbox-group v-model="tempSelectedAccounts">
                 <div class="account-list">
-                  <el-checkbox
-                    v-for="account in availableAccounts"
-                    :key="account.id"
-                    :label="account.id"
-                    class="account-item"
+                  <div 
+                    v-for="(accounts, platform) in accountsByPlatform" 
+                    :key="platform"
+                    class="platform-group"
                   >
-                    <div class="account-info">
-                      <span class="account-name">{{ account.name }}</span>                      
+                    <div class="platform-header">
+                      <h4>{{ platform }}</h4>
+                      <el-checkbox
+                        :indeterminate="isIndeterminate(platform)"
+                        :model-value="isAllSelected(platform)"
+                        @change="togglePlatformSelection(platform)"
+                        class="platform-checkbox"
+                      >
+                        全选
+                      </el-checkbox>
                     </div>
-                  </el-checkbox>
+                    <div class="accounts-in-platform">
+                      <el-checkbox
+                        v-for="account in accounts"
+                        :key="account.id"
+                        :label="account.id"
+                        class="account-item"
+                      >
+                        <div class="account-info">
+                          <span class="account-name">{{ account.name }}</span>
+                          <span class="account-status" :class="account.status === '正常' ? 'status-normal' : 'status-error'">
+                            {{ account.status }}
+                          </span>
+                        </div>
+                      </el-checkbox>
+                    </div>
+                  </div>
                 </div>
               </el-checkbox-group>
             </div>
@@ -293,19 +315,25 @@
             </template>
           </el-dialog>
 
-          <!-- 平台选择 -->
+          <!-- 平台信息显示 -->
           <div class="platform-section">
-            <h3>平台</h3>
-            <el-radio-group v-model="tab.selectedPlatform" class="platform-radios">
-              <el-radio 
-                v-for="platform in platforms" 
-                :key="platform.key"
-                :label="platform.key"
-                class="platform-radio"
-              >
-                {{ platform.name }}
-              </el-radio>
-            </el-radio-group>
+            <h3>发布平台</h3>
+            <div class="platform-info">
+              <p class="platform-tip">
+                <el-icon><InfoFilled /></el-icon>
+                已选择跨平台发布，将根据选中的账号自动发布到对应平台
+              </p>
+              <div v-if="tab.selectedAccounts.length > 0" class="selected-platforms">
+                <el-tag
+                  v-for="platform in getSelectedPlatforms(tab)"
+                  :key="platform"
+                  type="primary"
+                  class="platform-tag"
+                >
+                  {{ platform }}
+                </el-tag>
+              </div>
+            </div>
           </div>
 
           <!-- 标题输入 -->
@@ -466,7 +494,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { Upload, Plus, Close, Folder, Refresh } from '@element-plus/icons-vue'
+import { Upload, Plus, Close, Folder, Refresh, InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useAccountStore } from '@/stores/account'
 import { useAppStore } from '@/stores/app'
@@ -519,8 +547,7 @@ const tabs = reactive([
     label: '发布1',
     fileList: [], // 后端返回的文件名列表
     displayFileList: [], // 用于显示的文件列表
-    selectedAccounts: [], // 选中的账号ID列表
-    selectedPlatform: 1, // 选中的平台（单选）
+    selectedAccounts: [], // 选中的账号ID列表（支持跨平台）
     title: '',
     selectedTopics: [], // 话题列表（不带#号）
     scheduleEnabled: false, // 定时发布开关
@@ -541,16 +568,25 @@ const isRefreshingAccounts = ref(false)
 // 获取账号状态管理
 const accountStore = useAccountStore()
 
-// 根据选择的平台获取可用账号列表
+// 获取所有可用账号列表（支持跨平台选择）
 const availableAccounts = computed(() => {
+  return accountStore.accounts
+})
+
+// 按平台分组的账号列表
+const accountsByPlatform = computed(() => {
   const platformMap = {
     3: '抖音',
-    2: '视频号',
+    2: '视频号', 
     1: '小红书',
     4: '快手'
   }
-  const currentPlatform = currentTab.value ? platformMap[currentTab.value.selectedPlatform] : null
-  return currentPlatform ? accountStore.accounts.filter(acc => acc.platform === currentPlatform) : []
+  
+  const grouped = {}
+  Object.entries(platformMap).forEach(([key, platform]) => {
+    grouped[platform] = accountStore.accounts.filter(acc => acc.platform === platform)
+  })
+  return grouped
 })
 
 // 话题相关状态
@@ -573,7 +609,6 @@ const addTab = () => {
     fileList: [],
     displayFileList: [],
     selectedAccounts: [],
-    selectedPlatform: 1,
     title: '',
     selectedTopics: [],
     scheduleEnabled: false,
@@ -725,7 +760,42 @@ const removeAccount = (tab, index) => {
 // 获取账号显示名称
 const getAccountDisplayName = (accountId) => {
   const account = accountStore.accounts.find(acc => acc.id === accountId)
-  return account ? account.name : accountId
+  return account ? `${account.name} (${account.platform})` : accountId
+}
+
+// 检查平台是否全选
+const isAllSelected = (platform) => {
+  const platformAccounts = accountsByPlatform.value[platform] || []
+  if (platformAccounts.length === 0) return false
+  return platformAccounts.every(account => tempSelectedAccounts.value.includes(account.id))
+}
+
+// 检查平台是否部分选中
+const isIndeterminate = (platform) => {
+  const platformAccounts = accountsByPlatform.value[platform] || []
+  if (platformAccounts.length === 0) return false
+  const selectedCount = platformAccounts.filter(account => tempSelectedAccounts.value.includes(account.id)).length
+  return selectedCount > 0 && selectedCount < platformAccounts.length
+}
+
+// 切换平台全选状态
+const togglePlatformSelection = (platform) => {
+  const platformAccounts = accountsByPlatform.value[platform] || []
+  const platformAccountIds = platformAccounts.map(account => account.id)
+  
+  if (isAllSelected(platform)) {
+    // 如果全选，则取消选择该平台所有账号
+    tempSelectedAccounts.value = tempSelectedAccounts.value.filter(id => !platformAccountIds.includes(id))
+  } else {
+    // 如果未全选，则选择该平台所有账号
+    const newSelected = [...tempSelectedAccounts.value]
+    platformAccountIds.forEach(id => {
+      if (!newSelected.includes(id)) {
+        newSelected.push(id)
+      }
+    })
+    tempSelectedAccounts.value = newSelected
+  }
 }
 
 // 取消发布
@@ -753,11 +823,6 @@ const confirmPublish = async (tab) => {
       reject(new Error('请输入标题'))
       return
     }
-    if (!tab.selectedPlatform) {
-      ElMessage.error('请选择发布平台')
-      reject(new Error('请选择发布平台'))
-      return
-    }
     if (tab.selectedAccounts.length === 0) {
       ElMessage.error('请选择发布账号')
       reject(new Error('请选择发布账号'))
@@ -767,29 +832,46 @@ const confirmPublish = async (tab) => {
     // 设置发布状态
     tab.publishing = true
     
-    // 构造发布数据，符合后端API格式
-    const publishData = {
-      type: tab.selectedPlatform,
-      title: tab.title,
-      tags: tab.selectedTopics, // 不带#号的话题列表
-      fileList: tab.fileList.map(file => file.path), // 只发送文件路径
-      accountList: tab.selectedAccounts.map(accountId => {
-        const account = accountStore.accounts.find(acc => acc.id === accountId)
-        return account ? account.filePath : accountId
-      }), // 发送账号的文件路径
-      enableTimer: tab.scheduleEnabled ? 1 : 0, // 是否启用定时发布，开启传1，不开启传0
-      videosPerDay: tab.scheduleEnabled ? tab.videosPerDay || 1 : 1, // 每天发布视频数量，1-55
-      dailyTimes: tab.scheduleEnabled ? tab.dailyTimes || ['10:00'] : ['10:00'], // 每天发布时间点
-      startDays: tab.scheduleEnabled ? tab.startDays || 0 : 0, // 从今天开始计算的发布天数，0表示明天，1表示后天
-      category: 0 //表示非原创
-    }
+    // 按平台分组选中的账号
+    const accountsByPlatform = {}
+    tab.selectedAccounts.forEach(accountId => {
+      const account = accountStore.accounts.find(acc => acc.id === accountId)
+      if (account) {
+        if (!accountsByPlatform[account.platform]) {
+          accountsByPlatform[account.platform] = []
+        }
+        accountsByPlatform[account.platform].push(account)
+      }
+    })
     
-    // 调用后端发布API
-    publishApi.publishVideo(publishData)
-    .then(data => {
-      if (data.code === 200) {
+    // 为每个平台创建发布任务
+    const publishPromises = Object.entries(accountsByPlatform).map(([platform, accounts]) => {
+      const platformType = getPlatformType(platform)
+      const publishData = {
+        type: platformType,
+        title: tab.title,
+        tags: tab.selectedTopics, // 不带#号的话题列表
+        fileList: tab.fileList.map(file => file.path), // 只发送文件路径
+        accountList: accounts.map(account => account.filePath), // 发送账号的文件路径
+        enableTimer: tab.scheduleEnabled ? 1 : 0, // 是否启用定时发布，开启传1，不开启传0
+        videosPerDay: tab.scheduleEnabled ? tab.videosPerDay || 1 : 1, // 每天发布视频数量，1-55
+        dailyTimes: tab.scheduleEnabled ? tab.dailyTimes || ['10:00'] : ['10:00'], // 每天发布时间点
+        startDays: tab.scheduleEnabled ? tab.startDays || 0 : 0, // 从今天开始计算的发布天数，0表示明天，1表示后天
+        category: 0 //表示非原创
+      }
+      
+      return publishApi.publishVideo(publishData)
+    })
+    
+    // 并行执行所有平台的发布任务
+    Promise.allSettled(publishPromises)
+    .then(results => {
+      const successCount = results.filter(result => result.status === 'fulfilled' && result.value.code === 200).length
+      const failCount = results.length - successCount
+      
+      if (failCount === 0) {
         tab.publishStatus = {
-          message: '发布成功',
+          message: `发布成功！已发布到 ${successCount} 个平台`,
           type: 'success'
         }
         // 清空当前tab的数据
@@ -802,10 +884,10 @@ const confirmPublish = async (tab) => {
         resolve()
       } else {
         tab.publishStatus = {
-          message: `发布失败：${data.msg || '发布失败'}`,
-          type: 'error'
+          message: `部分发布失败：${successCount} 个成功，${failCount} 个失败`,
+          type: 'warning'
         }
-        reject(new Error(data.msg || '发布失败'))
+        reject(new Error(`部分发布失败：${successCount} 个成功，${failCount} 个失败`))
       }
     })
     .catch(error => {
@@ -821,6 +903,29 @@ const confirmPublish = async (tab) => {
       tab.publishing = false
     })
   })
+}
+
+// 获取平台类型码
+const getPlatformType = (platform) => {
+  const platformMap = {
+    '抖音': 3,
+    '视频号': 2,
+    '小红书': 1,
+    '快手': 4
+  }
+  return platformMap[platform] || 1
+}
+
+// 获取选中的平台列表
+const getSelectedPlatforms = (tab) => {
+  const platforms = new Set()
+  tab.selectedAccounts.forEach(accountId => {
+    const account = accountStore.accounts.find(acc => acc.id === accountId)
+    if (account) {
+      platforms.add(account.platform)
+    }
+  })
+  return Array.from(platforms)
 }
 
 // 显示上传选项
@@ -1656,6 +1761,117 @@ onMounted(() => {
     }
   }
   
+  // 账号选择弹窗样式
+  .account-dialog {
+    .account-dialog-content {
+      max-height: 500px;
+      overflow-y: auto;
+      
+      .account-list {
+        .platform-group {
+          margin-bottom: 24px;
+          border: 1px solid #EBEEF5;
+          border-radius: 6px;
+          overflow: hidden;
+          
+          .platform-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background-color: #F5F7FA;
+            border-bottom: 1px solid #EBEEF5;
+            
+            h4 {
+              margin: 0;
+              font-size: 16px;
+              font-weight: 500;
+              color: #303133;
+            }
+            
+            .platform-checkbox {
+              font-size: 14px;
+            }
+          }
+          
+          .accounts-in-platform {
+            padding: 12px 16px;
+            
+            .account-item {
+              display: block;
+              margin-bottom: 8px;
+              
+              &:last-child {
+                margin-bottom: 0;
+              }
+              
+              .account-info {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+                
+                .account-name {
+                  font-size: 14px;
+                  color: #303133;
+                }
+                
+                .account-status {
+                  font-size: 12px;
+                  padding: 2px 6px;
+                  border-radius: 3px;
+                  
+                  &.status-normal {
+                    background-color: #F0F9FF;
+                    color: #67C23A;
+                  }
+                  
+                  &.status-error {
+                    background-color: #FEF0F0;
+                    color: #F56C6C;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // 平台信息显示样式
+  .platform-section {
+    .platform-info {
+      .platform-tip {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 12px 0;
+        padding: 12px;
+        background-color: #F0F9FF;
+        border: 1px solid #B3D8FF;
+        border-radius: 4px;
+        color: #409EFF;
+        font-size: 14px;
+        
+        .el-icon {
+          font-size: 16px;
+        }
+      }
+      
+      .selected-platforms {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        
+        .platform-tag {
+          font-size: 14px;
+          padding: 4px 8px;
+        }
+      }
+    }
+  }
+  
   // 移动端对话框优化
   @media (max-width: $breakpoint-sm) {
     :deep(.el-dialog) {
@@ -1685,6 +1901,73 @@ onMounted(() => {
     
     :deep(.el-textarea__inner) {
       font-size: 12px;
+    }
+    
+    // 移动端账号选择弹窗优化
+    .account-dialog {
+      .account-dialog-content {
+        max-height: 400px;
+        
+        .account-list {
+          .platform-group {
+            margin-bottom: 16px;
+            
+            .platform-header {
+              padding: 8px 12px;
+              
+              h4 {
+                font-size: 14px;
+              }
+              
+              .platform-checkbox {
+                font-size: 12px;
+              }
+            }
+            
+            .accounts-in-platform {
+              padding: 8px 12px;
+              
+              .account-item {
+                margin-bottom: 6px;
+                
+                .account-info {
+                  .account-name {
+                    font-size: 12px;
+                  }
+                  
+                  .account-status {
+                    font-size: 10px;
+                    padding: 1px 4px;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // 移动端平台信息显示优化
+    .platform-section {
+      .platform-info {
+        .platform-tip {
+          padding: 8px;
+          font-size: 12px;
+          
+          .el-icon {
+            font-size: 14px;
+          }
+        }
+        
+        .selected-platforms {
+          gap: 6px;
+          
+          .platform-tag {
+            font-size: 12px;
+            padding: 2px 6px;
+          }
+        }
+      }
     }
   }
 }
