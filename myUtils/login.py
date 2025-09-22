@@ -14,6 +14,38 @@ from conf import BASE_DIR
 from utils.browser_config import get_browser_options, is_docker_env
 
 
+async def navigate_with_retry(page, url, max_retries=3, timeout=60000, platform_name="unknown"):
+    """
+    带重试机制的页面导航函数
+    
+    Args:
+        page: Playwright页面对象
+        url: 要导航的URL
+        max_retries: 最大重试次数
+        timeout: 单次导航超时时间（毫秒）
+        platform_name: 平台名称，用于错误日志
+    
+    Returns:
+        bool: 导航是否成功
+    """
+    for attempt in range(max_retries):
+        try:
+            print(f"🔄 {platform_name} 页面导航尝试 {attempt + 1}/{max_retries}: {url}")
+            await page.goto(url, timeout=timeout)
+            print(f"✅ {platform_name} 页面导航成功")
+            return True
+        except Exception as e:
+            print(f"❌ {platform_name} 页面导航失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 5  # 递增等待时间：5秒、10秒、15秒
+                print(f"⏳ 等待 {wait_time} 秒后重试...")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"💥 {platform_name} 页面导航最终失败，已重试 {max_retries} 次")
+                return False
+    return False
+
+
 class ConsoleMessageCollector:
     """控制台消息收集器类，为每个登录会话提供独立的消息收集"""
     
@@ -130,13 +162,31 @@ async def douyin_cookie_gen(id,status_queue):
         
         # 设置页面监听器
         console_collector.setup_page_listeners(page)
-        await page.goto("https://creator.douyin.com/")
-        original_url = page.url
-        img_locator = page.get_by_role("img", name="二维码")
-        # 获取 src 属性值
-        src = await img_locator.get_attribute("src")
-        print("✅ 图片地址:", src)
-        status_queue.put(src)
+        
+        # 使用重试机制进行页面导航
+        if not await navigate_with_retry(page, "https://creator.douyin.com/", max_retries=3, timeout=60000, platform_name="抖音"):
+            await save_debug_info(page, "douyin_navigation_error", id, console_collector)
+            status_queue.put("500")
+            await page.close()
+            await context.close()
+            await browser.close()
+            return None
+        
+        try:
+            original_url = page.url
+            img_locator = page.get_by_role("img", name="二维码")
+            # 获取 src 属性值
+            src = await img_locator.get_attribute("src")
+            print("✅ 图片地址:", src)
+            status_queue.put(src)
+        except Exception as e:
+            print(f"❌ 抖音页面元素获取失败: {e}")
+            await save_debug_info(page, "douyin_element_error", id, console_collector)
+            status_queue.put("500")
+            await page.close()
+            await context.close()
+            await browser.close()
+            return None
         # 监听页面的 'framenavigated' 事件，只关注主框架的变化
         page.on('framenavigated',
                 lambda frame: asyncio.create_task(on_url_change()) if frame == page.main_frame else None)
@@ -201,23 +251,41 @@ async def get_tencent_cookie(id,status_queue):
         
         # 设置页面监听器
         console_collector.setup_page_listeners(page)
-        await page.goto("https://channels.weixin.qq.com")
-        original_url = page.url
+        
+        # 使用重试机制进行页面导航
+        if not await navigate_with_retry(page, "https://channels.weixin.qq.com", max_retries=3, timeout=60000, platform_name="视频号"):
+            await save_debug_info(page, "tencent_navigation_error", id, console_collector)
+            status_queue.put("500")
+            await page.close()
+            await context.close()
+            await browser.close()
+            return None
+        
+        try:
+            original_url = page.url
 
-        # 监听页面的 'framenavigated' 事件，只关注主框架的变化
-        page.on('framenavigated',
-                lambda frame: asyncio.create_task(on_url_change()) if frame == page.main_frame else None)
+            # 监听页面的 'framenavigated' 事件，只关注主框架的变化
+            page.on('framenavigated',
+                    lambda frame: asyncio.create_task(on_url_change()) if frame == page.main_frame else None)
 
-        # 等待 iframe 出现（最多等 60 秒）
-        iframe_locator = page.frame_locator("iframe").first
+            # 等待 iframe 出现（最多等 60 秒）
+            iframe_locator = page.frame_locator("iframe").first
 
-        # 获取 iframe 中的第一个 img 元素
-        img_locator = iframe_locator.get_by_role("img").first
+            # 获取 iframe 中的第一个 img 元素
+            img_locator = iframe_locator.get_by_role("img").first
 
-        # 获取 src 属性值
-        src = await img_locator.get_attribute("src")
-        print("✅ 图片地址:", src)
-        status_queue.put(src)
+            # 获取 src 属性值
+            src = await img_locator.get_attribute("src")
+            print("✅ 图片地址:", src)
+            status_queue.put(src)
+        except Exception as e:
+            print(f"❌ 视频号页面元素获取失败: {e}")
+            await save_debug_info(page, "tencent_element_error", id, console_collector)
+            status_queue.put("500")
+            await page.close()
+            await context.close()
+            await browser.close()
+            return None
 
         try:
             # 等待 URL 变化或超时
@@ -278,17 +346,34 @@ async def get_ks_cookie(id,status_queue):
         
         # 设置页面监听器
         console_collector.setup_page_listeners(page)
-        await page.goto("https://cp.kuaishou.com")
-
-        # 定位并点击"立即登录"按钮（类型为 link）
-        await page.get_by_role("link", name="立即登录").click()
-        await page.get_by_text("扫码登录").click()
-        img_locator = page.get_by_role("img", name="qrcode")
-        # 获取 src 属性值
-        src = await img_locator.get_attribute("src")
-        original_url = page.url
-        print("✅ 图片地址:", src)
-        status_queue.put(src)
+        
+        # 使用重试机制进行页面导航
+        if not await navigate_with_retry(page, "https://cp.kuaishou.com", max_retries=3, timeout=60000, platform_name="快手"):
+            await save_debug_info(page, "kuaishou_navigation_error", id, console_collector)
+            status_queue.put("500")
+            await page.close()
+            await context.close()
+            await browser.close()
+            return None
+        
+        try:
+            # 定位并点击"立即登录"按钮（类型为 link）
+            await page.get_by_role("link", name="立即登录").click()
+            await page.get_by_text("扫码登录").click()
+            img_locator = page.get_by_role("img", name="qrcode")
+            # 获取 src 属性值
+            src = await img_locator.get_attribute("src")
+            original_url = page.url
+            print("✅ 图片地址:", src)
+            status_queue.put(src)
+        except Exception as e:
+            print(f"❌ 快手页面元素获取失败: {e}")
+            await save_debug_info(page, "kuaishou_element_error", id, console_collector)
+            status_queue.put("500")
+            await page.close()
+            await context.close()
+            await browser.close()
+            return None
         # 监听页面的 'framenavigated' 事件，只关注主框架的变化
         page.on('framenavigated',
                 lambda frame: asyncio.create_task(on_url_change()) if frame == page.main_frame else None)
@@ -353,15 +438,33 @@ async def xiaohongshu_cookie_gen(id,status_queue):
         
         # 设置页面监听器
         console_collector.setup_page_listeners(page)
-        await page.goto("https://creator.xiaohongshu.com/")
-        await page.locator('img.css-wemwzq').click()
+        
+        # 使用重试机制进行页面导航
+        if not await navigate_with_retry(page, "https://creator.xiaohongshu.com/", max_retries=3, timeout=60000, platform_name="小红书"):
+            await save_debug_info(page, "xiaohongshu_navigation_error", id, console_collector)
+            status_queue.put("500")
+            await page.close()
+            await context.close()
+            await browser.close()
+            return None
+        
+        try:
+            await page.locator('img.css-wemwzq').click()
 
-        img_locator = page.get_by_role("img").nth(2)
-        # 获取 src 属性值
-        src = await img_locator.get_attribute("src")
-        original_url = page.url
-        print("✅ 图片地址:", src)
-        status_queue.put(src)
+            img_locator = page.get_by_role("img").nth(2)
+            # 获取 src 属性值
+            src = await img_locator.get_attribute("src")
+            original_url = page.url
+            print("✅ 图片地址:", src)
+            status_queue.put(src)
+        except Exception as e:
+            print(f"❌ 小红书页面元素获取失败: {e}")
+            await save_debug_info(page, "xiaohongshu_element_error", id, console_collector)
+            status_queue.put("500")
+            await page.close()
+            await context.close()
+            await browser.close()
+            return None
         # 监听页面的 'framenavigated' 事件，只关注主框架的变化
         page.on('framenavigated',
                 lambda frame: asyncio.create_task(on_url_change()) if frame == page.main_frame else None)
