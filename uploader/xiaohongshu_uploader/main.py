@@ -154,7 +154,7 @@ class XiaoHongShuVideo(object):
                     else:
                         print("  [-] 未找到上传成功标识，继续等待...")
                 else:
-                    print("  [-] 未找到预览元素，继续等待...")
+                    print("  [-] 小红书 未找到预览元素，继续等待...")
                     await asyncio.sleep(1)
             except Exception as e:
                 print(f"  [-] 检测过程出错: {str(e)}，重新尝试...")
@@ -178,8 +178,8 @@ class XiaoHongShuVideo(object):
             await page.keyboard.press("Delete")
             await page.keyboard.type(self.title)
             await page.keyboard.press("Enter")
-        # 等待内容编辑器加载完成
-        css_selector = ".ql-editor" # 不能加上 .ql-blank 属性，这样只能获取第一次非空状态
+        # 等待内容编辑器加载完成，直接使用备用选择器
+        css_selector = "div[contenteditable='true']"  # 直接使用备用选择器
         try:
             # 等待编辑器元素出现并且可交互
             await page.wait_for_selector(css_selector, timeout=60000, state="visible")
@@ -214,9 +214,9 @@ class XiaoHongShuVideo(object):
             
         except Exception as e:
             xiaohongshu_logger.error(f'等待编辑器元素失败: {str(e)}')
-            # 尝试备用方案：使用替代选择器
+            # 尝试备用方案：使用其他替代选择器
             alternative_selectors = [
-                "div[contenteditable='true']",
+                ".ql-editor",
                 ".ql-container .ql-editor", 
                 "[data-placeholder]",
                 "div[role='textbox']"
