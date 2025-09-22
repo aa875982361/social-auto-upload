@@ -4,6 +4,7 @@ import Dashboard from '../views/Dashboard.vue'
 import AccountManagement from '../views/AccountManagement.vue'
 import MaterialManagement from '../views/MaterialManagement.vue'
 import PublishCenter from '../views/PublishCenter.vue'
+import PublishHistory from '../views/PublishHistory.vue'
 import About from '../views/About.vue'
 import Login from '../views/Login.vue'
 
@@ -50,6 +51,15 @@ const routes = [
     component: PublishCenter,
     meta: {
       title: '发布中心',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/publish-history',
+    name: 'PublishHistory',
+    component: PublishHistory,
+    meta: {
+      title: '发布历史',
       requiresAuth: true
     }
   },

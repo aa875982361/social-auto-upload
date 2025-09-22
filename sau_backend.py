@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import os
 import sqlite3
 import threading
@@ -37,8 +38,63 @@ def generate_task_id(title, file_list, account_list, type):
     # 生成MD5哈希作为任务ID
     return hashlib.md5(task_data.encode('utf-8')).hexdigest()
 
+def get_platform_name(platform_type):
+    """根据平台类型获取平台名称"""
+    platform_map = {
+        1: '小红书',
+        2: '视频号', 
+        3: '抖音',
+        4: '快手'
+    }
+    return platform_map.get(platform_type, '未知平台')
+
+def save_publish_history(task_id, platform_type, platform_name, account_name, account_file_path, 
+                        title, tags, file_list, status='pending', error_message=None,
+                        enable_timer=0, videos_per_day=1, daily_times=None, start_days=0, category=0):
+    """保存发布历史记录"""
+    try:
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
+            cursor = conn.cursor()
+            
+            # 将列表转换为JSON字符串
+            tags_json = json.dumps(tags) if tags else None
+            file_list_json = json.dumps(file_list)
+            daily_times_json = json.dumps(daily_times) if daily_times else None
+            
+            cursor.execute('''
+                INSERT INTO publish_history (
+                    task_id, platform_type, platform_name, account_name, account_file_path,
+                    title, tags, file_list, status, error_message,
+                    enable_timer, videos_per_day, daily_times, start_days, category
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                task_id, platform_type, platform_name, account_name, account_file_path,
+                title, tags_json, file_list_json, status, error_message,
+                enable_timer, videos_per_day, daily_times_json, start_days, category
+            ))
+            conn.commit()
+            print(f"✅ 发布历史记录已保存: {task_id}")
+    except Exception as e:
+        print(f"❌ 保存发布历史记录失败: {e}")
+
+def update_publish_history_status(task_id, status, error_message=None):
+    """更新发布历史记录状态"""
+    try:
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE publish_history 
+                SET status = ?, error_message = ?, publish_time = CURRENT_TIMESTAMP
+                WHERE task_id = ?
+            ''', (status, error_message, task_id))
+            conn.commit()
+            print(f"✅ 发布历史状态已更新: {task_id} -> {status}")
+    except Exception as e:
+        print(f"❌ 更新发布历史状态失败: {e}")
+
 def init_database():
-    """初始化数据库，仅在数据库不存在时创建表"""
+    """初始化数据库，确保所有必需的表都存在"""
     db_path = Path(BASE_DIR / "data" / "db" / "database.db")
     
     # 确保目录存在
@@ -49,35 +105,60 @@ def init_database():
     
     if not db_exists:
         print("🔄 初始化数据库...")
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            
-            # 创建账号记录表
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS user_info (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                type INTEGER NOT NULL,
-                filePath TEXT NOT NULL,
-                userName TEXT NOT NULL,
-                status INTEGER DEFAULT 0
-            )
-            ''')
-            
-            # 创建文件记录表
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS file_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                filename TEXT NOT NULL,
-                filesize REAL,
-                upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-                file_path TEXT
-            )
-            ''')
-            
-            conn.commit()
-            print("✅ 数据库表创建成功")
     else:
-        print("✅ 数据库已存在，跳过初始化")
+        print("🔄 检查并创建数据库表...")
+    
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        
+        # 创建账号记录表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_info (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type INTEGER NOT NULL,
+            filePath TEXT NOT NULL,
+            userName TEXT NOT NULL,
+            status INTEGER DEFAULT 0
+        )
+        ''')
+        
+        # 创建文件记录表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS file_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            filesize REAL,
+            upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            file_path TEXT
+        )
+        ''')
+        
+        # 创建发布历史记录表
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS publish_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id TEXT NOT NULL,
+            platform_type INTEGER NOT NULL,
+            platform_name TEXT NOT NULL,
+            account_name TEXT NOT NULL,
+            account_file_path TEXT NOT NULL,
+            title TEXT NOT NULL,
+            tags TEXT,
+            file_list TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            error_message TEXT,
+            publish_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+            enable_timer INTEGER DEFAULT 0,
+            videos_per_day INTEGER DEFAULT 1,
+            daily_times TEXT,
+            start_days INTEGER DEFAULT 0,
+            category INTEGER DEFAULT 0
+        )
+        ''')
+        
+        conn.commit()
+        print("✅ 数据库表检查/创建完成")
 
 #允许所有来源跨域访问
 CORS(app)
@@ -584,6 +665,32 @@ def postVideo():
         publishing_tasks.add(task_id)
         print(f"任务 {task_id} 已添加到发布队列")
         
+        # 获取平台名称
+        platform_name = get_platform_name(type)
+        
+        # 为每个账号记录发布历史
+        for account_file_path in account_list:
+            # 从账号文件路径中提取账号名称（去掉路径和扩展名）
+            account_name = Path(account_file_path).stem
+            
+            # 保存发布历史记录
+            save_publish_history(
+                task_id=task_id,
+                platform_type=type,
+                platform_name=platform_name,
+                account_name=account_name,
+                account_file_path=account_file_path,
+                title=title,
+                tags=tags,
+                file_list=processed_file_list,
+                status='pending',
+                enable_timer=1 if enableTimer else 0,
+                videos_per_day=videos_per_day or 1,
+                daily_times=daily_times,
+                start_days=start_days or 0,
+                category=category or 0
+            )
+        
     except Exception as e:
         print(f"参数解析或文件处理错误: {e}")
         return jsonify({
@@ -607,6 +714,9 @@ def postVideo():
             case 4:
                 post_video_ks(title, processed_file_list, tags, account_list, category, enableTimer, videos_per_day, daily_times,
                           start_days)
+        
+        # 发布成功，更新历史记录状态
+        update_publish_history_status(task_id, 'success')
                           
         # 返回成功响应
         return jsonify({
@@ -624,6 +734,9 @@ def postVideo():
         
     except Exception as e:
         print(f"视频上传处理错误: {e}")
+        # 发布失败，更新历史记录状态
+        if 'task_id' in locals():
+            update_publish_history_status(task_id, 'failed', str(e))
         return jsonify({
             "code": 500,
             "msg": f"视频上传处理失败: {str(e)}",
@@ -755,6 +868,189 @@ def sse_stream(status_queue):
         else:
             # 避免 CPU 占满
             time.sleep(0.1)
+
+@app.route('/api/publishHistory', methods=['GET'])
+@token_required
+def get_publish_history():
+    """获取发布历史记录"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        page_size = int(request.args.get('pageSize', 20))
+        platform_type = request.args.get('platformType')
+        status = request.args.get('status')
+        account_name = request.args.get('accountName')
+        
+        # 计算偏移量
+        offset = (page - 1) * page_size
+        
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # 构建查询条件
+            where_conditions = []
+            params = []
+            
+            if platform_type:
+                where_conditions.append("platform_type = ?")
+                params.append(platform_type)
+            
+            if status:
+                where_conditions.append("status = ?")
+                params.append(status)
+                
+            if account_name:
+                where_conditions.append("account_name LIKE ?")
+                params.append(f"%{account_name}%")
+            
+            where_clause = "WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+            
+            # 查询总数
+            count_sql = f"SELECT COUNT(*) as total FROM publish_history {where_clause}"
+            cursor.execute(count_sql, params)
+            total = cursor.fetchone()['total']
+            
+            # 查询数据
+            data_sql = f"""
+                SELECT * FROM publish_history 
+                {where_clause}
+                ORDER BY created_time DESC 
+                LIMIT ? OFFSET ?
+            """
+            cursor.execute(data_sql, params + [page_size, offset])
+            records = cursor.fetchall()
+            
+            # 转换记录为字典列表
+            history_list = []
+            for record in records:
+                history_item = {
+                    'id': record['id'],
+                    'task_id': record['task_id'],
+                    'platform_type': record['platform_type'],
+                    'platform_name': record['platform_name'],
+                    'account_name': record['account_name'],
+                    'account_file_path': record['account_file_path'],
+                    'title': record['title'],
+                    'tags': json.loads(record['tags']) if record['tags'] else [],
+                    'file_list': json.loads(record['file_list']),
+                    'status': record['status'],
+                    'error_message': record['error_message'],
+                    'publish_time': record['publish_time'],
+                    'created_time': record['created_time'],
+                    'enable_timer': record['enable_timer'],
+                    'videos_per_day': record['videos_per_day'],
+                    'daily_times': json.loads(record['daily_times']) if record['daily_times'] else [],
+                    'start_days': record['start_days'],
+                    'category': record['category']
+                }
+                history_list.append(history_item)
+            
+            return jsonify({
+                "code": 200,
+                "msg": "获取发布历史成功",
+                "data": {
+                    "list": history_list,
+                    "total": total,
+                    "page": page,
+                    "pageSize": page_size,
+                    "totalPages": (total + page_size - 1) // page_size
+                }
+            }), 200
+            
+    except Exception as e:
+        print(f"获取发布历史失败: {e}")
+        return jsonify({
+            "code": 500,
+            "msg": f"获取发布历史失败: {str(e)}",
+            "data": None
+        }), 500
+
+@app.route('/api/publishStatus/<task_id>', methods=['GET'])
+@token_required
+def get_publish_status(task_id):
+    """获取特定任务的发布状态"""
+    try:
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT * FROM publish_history 
+                WHERE task_id = ? 
+                ORDER BY created_time DESC
+            """, (task_id,))
+            records = cursor.fetchall()
+            
+            if not records:
+                return jsonify({
+                    "code": 404,
+                    "msg": "未找到该任务",
+                    "data": None
+                }), 404
+            
+            # 转换记录为字典列表
+            status_list = []
+            for record in records:
+                status_item = {
+                    'id': record['id'],
+                    'task_id': record['task_id'],
+                    'platform_type': record['platform_type'],
+                    'platform_name': record['platform_name'],
+                    'account_name': record['account_name'],
+                    'title': record['title'],
+                    'status': record['status'],
+                    'error_message': record['error_message'],
+                    'publish_time': record['publish_time'],
+                    'created_time': record['created_time']
+                }
+                status_list.append(status_item)
+            
+            return jsonify({
+                "code": 200,
+                "msg": "获取任务状态成功",
+                "data": status_list
+            }), 200
+            
+    except Exception as e:
+        print(f"获取任务状态失败: {e}")
+        return jsonify({
+            "code": 500,
+            "msg": f"获取任务状态失败: {str(e)}",
+            "data": None
+        }), 500
+
+@app.route('/api/deletePublishHistory/<int:history_id>', methods=['DELETE'])
+@token_required
+def delete_publish_history(history_id):
+    """删除发布历史记录"""
+    try:
+        with sqlite3.connect(Path(BASE_DIR / "data" / "db" / "database.db")) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("DELETE FROM publish_history WHERE id = ?", (history_id,))
+            conn.commit()
+            
+            if cursor.rowcount > 0:
+                return jsonify({
+                    "code": 200,
+                    "msg": "删除成功",
+                    "data": None
+                }), 200
+            else:
+                return jsonify({
+                    "code": 404,
+                    "msg": "记录不存在",
+                    "data": None
+                }), 404
+                
+    except Exception as e:
+        print(f"删除发布历史失败: {e}")
+        return jsonify({
+            "code": 500,
+            "msg": f"删除发布历史失败: {str(e)}",
+            "data": None
+        }), 500
 
 if __name__ == '__main__':
     # 初始化数据库

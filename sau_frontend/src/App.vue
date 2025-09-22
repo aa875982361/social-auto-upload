@@ -49,6 +49,10 @@
                 <el-icon><Upload /></el-icon>
                 <span>发布中心</span>
               </el-menu-item>
+              <el-menu-item index="/publish-history" @click="handleMobileMenuClick">
+                <el-icon><Clock /></el-icon>
+                <span>发布历史</span>
+              </el-menu-item>
               <el-menu-item index="/about" @click="handleMobileMenuClick">
                 <el-icon><Monitor /></el-icon>
                 <span>关于</span>
@@ -105,7 +109,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { 
   HomeFilled, User, Monitor, DataAnalysis, 
-  Fold, Expand, Picture, Upload, CaretBottom, SwitchButton
+  Fold, Expand, Picture, Upload, Clock, CaretBottom, SwitchButton
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -159,6 +163,7 @@ const getPageTitle = () => {
     '/account-management': '账号管理',
     '/material-management': '素材管理',
     '/publish-center': '发布中心',
+    '/publish-history': '发布历史',
     '/about': '关于'
   }
   return titleMap[route.path] || '自媒体自动化运营系统'

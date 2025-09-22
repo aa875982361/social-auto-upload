@@ -25,5 +25,10 @@ export const publishApi = {
   // 重新发布
   republish: (taskId) => {
     return http.post(`/api/republish/${taskId}`)
+  },
+  
+  // 删除发布历史记录
+  deletePublishHistory: (historyId) => {
+    return http.delete(`/api/deletePublishHistory/${historyId}`)
   }
 }
