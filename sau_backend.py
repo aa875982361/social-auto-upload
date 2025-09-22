@@ -85,23 +85,24 @@ CORS(app)
 # 限制上传文件大小为160MB
 app.config['MAX_CONTENT_LENGTH'] = 160 * 1024 * 1024
 
-# 获取当前目录（假设 index.html 和 assets 在这里）
+# 获取当前目录和前端构建目录
 current_dir = os.path.dirname(os.path.abspath(__file__))
+frontend_dist_dir = os.path.join(current_dir, 'sau_frontend', 'dist')
 
-# 处理所有静态资源请求（未来打包用）
+# 处理所有静态资源请求（指向前端构建目录）
 @app.route('/assets/<filename>')
 def custom_static(filename):
-    return send_from_directory(os.path.join(current_dir, 'assets'), filename)
+    return send_from_directory(os.path.join(frontend_dist_dir, 'assets'), filename)
 
-# 处理 favicon.ico 静态资源（未来打包用）
+# 处理 favicon.ico 静态资源（指向前端构建目录）
 @app.route('/favicon.ico')
-def favicon(filename):
-    return send_from_directory(os.path.join(current_dir, 'assets'), 'favicon.ico')
+def favicon():
+    return send_from_directory(frontend_dist_dir, 'favicon.ico')
 
-# （未来打包用）
+# 处理根路径，返回前端构建的 index.html
 @app.route('/')
-def hello_world():  # put application's code here
-    return render_template('index.html')
+def hello_world():
+    return send_from_directory(frontend_dist_dir, 'index.html')
 
 # 登录接口
 @app.route('/api/auth/login', methods=['POST'])
